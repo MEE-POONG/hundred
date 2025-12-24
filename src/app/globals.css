@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0B0B0F;
+  --color-surface: #12121A;
+  --color-primary: #FF4DA6;
+  --color-primary-light: #FFB3D9;
+  --color-accent: #7A5CFF;
+  --color-gold: #C9A24D;
+  --color-text-primary: #F5F5F7;
+  --color-text-muted: #B7B7C2;
+}
+
+* {
+  border-color: rgb(183 183 194 / 0.1);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.container-custom {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container-custom {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container-custom {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: rgb(255 77 166 / 0.9);
+}
+
+.btn-outline {
+  border: 2px solid rgb(183 183 194 / 0.3);
+  color: var(--color-text-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.btn-outline:hover {
+  border-color: var(--color-primary);
+}
+
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid rgb(183 183 194 / 0.1);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+.input-field {
+  width: 100%;
+  background-color: var(--color-surface);
+  border: 1px solid rgb(183 183 194 / 0.2);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--color-text-primary);
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.input-field::placeholder {
+  color: var(--color-text-muted);
+}

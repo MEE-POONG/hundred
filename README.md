@@ -1,40 +1,176 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# NOIR VITA - Premium Health Supplement E-Commerce
 
-## Getting Started
+A complete **frontend-only** e-commerce website for a premium health supplement brand, built as a UI/UX demonstration prototype.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16.1-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38bdf8)
+
+## 🌟 Overview
+
+**NOIR VITA** is a professional, dark-themed e-commerce storefront showcasing best practices in modern web development. This is a **demonstration project only** - no real transactions or backend processing occur.
+
+### Brand Identity
+- **Name:** NOIR VITA
+- **Tagline:** Professional Daily Supplement Care
+- **Theme:** Dark, premium, trustworthy wellness brand
+
+### Design System
+- **Primary Color:** Pink (#FF4DA6)
+- **Background:** Black (#0B0B0F)
+- **Surface:** Dark (#12121A)
+- **Text:** Light (#F5F5F7)
+- **Accent:** Muted Purple (#7A5CFF)
+- **Premium Touch:** Soft Gold (#C9A24D)
+
+## 📦 Features
+
+### Customer-Facing Pages
+✅ **Home Page** - Hero, best sellers, trust badges, categories, testimonials
+✅ **Product Listing** - Advanced filters (health goal, dietary, price), search, sorting
+✅ **Product Detail** - Image gallery, tabs (benefits, ingredients, usage, warnings)
+✅ **Shopping Cart** - Item management, quantity controls, order summary
+✅ **Checkout** - Multi-step form, shipping methods, payment UI (demo only)
+✅ **Order History** - Order tracking, detailed order views
+✅ **Certifications** - GMP, HACCP, FDA (TH) displays
+✅ **Blog** - Health articles with professional content
+✅ **Policies** - Privacy, shipping, returns, terms & conditions
+
+### Admin Panel
+✅ **Dashboard** - Revenue, orders, customers, best-selling products
+✅ **Product Management** - CRUD operations, inventory tracking
+✅ **Order Management** - Status updates, filtering, customer details
+✅ **Customer Management** - User listings, registration tracking
+✅ **Payment Records** - Transaction history, payment methods
+
+### Technical Features
+- 🎨 **Fully Responsive** - Desktop, tablet, mobile optimized
+- 🌙 **Dark Theme Only** - Professional, premium aesthetic
+- 🛒 **Local Cart State** - Persistent shopping cart (localStorage)
+- 📱 **Mobile Navigation** - Hamburger menu, touch-friendly
+- ♿ **Accessible** - High contrast, semantic HTML
+- ⚡ **Performance** - Optimized images, code splitting
+- 🔍 **SEO Ready** - Meta tags, semantic structure
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or pnpm
+
+### Installation
 
 ```bash
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+## 📁 Project Structure
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+```
+src/
+├── app/                      # Next.js App Router pages
+│   ├── page.tsx             # Home page
+│   ├── products/            # Product listing & detail
+│   ├── cart/                # Shopping cart
+│   ├── checkout/            # Checkout flow
+│   ├── account/orders/      # Order history
+│   ├── admin/               # Admin dashboard
+│   ├── certifications/      # Quality certifications
+│   ├── blog/                # Health articles
+│   └── policies/            # Legal policies
+├── components/
+│   ├── ui/                  # Reusable UI components
+│   ├── layout/              # Header, Footer, Admin Nav
+│   └── ProductCard.tsx      # Product display component
+├── contexts/
+│   └── CartContext.tsx      # Global cart state
+├── lib/
+│   └── mockData.ts          # Mock products, orders, etc.
+└── types/
+    └── index.ts             # TypeScript interfaces
+```
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## 🎯 Key Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Public Routes
+- `/` - Homepage
+- `/products` - Product catalog with filters
+- `/products/[slug]` - Individual product details
+- `/cart` - Shopping cart
+- `/checkout` - Checkout process (UI only)
+- `/account/orders` - Order history
+- `/certifications` - Quality certifications
+- `/blog` - Health articles
+- `/blog/[slug]` - Article detail
+- `/policies` - Terms, privacy, shipping, returns
 
-## Learn More
+### Admin Routes
+- `/admin/dashboard` - Overview & statistics
+- `/admin/products` - Product management
+- `/admin/orders` - Order management
+- `/admin/customers` - Customer list
+- `/admin/payments` - Payment records
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS 4
+- **State Management:** React Context API
+- **Data Storage:** localStorage (cart only)
+- **Images:** Unsplash (via next/image)
+- **Font:** Inter (Google Fonts)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📋 Mock Data
 
-## Deploy on Vercel
+The project includes comprehensive mock data:
+- **12 Products** - Collagen, Probiotics, Omega-3, Multivitamins, etc.
+- **3 Sample Orders** - Various statuses and payment methods
+- **3 Users** - Customers and admin
+- **4 Blog Articles** - Health and wellness content
+- **3 Certificates** - GMP, HACCP, FDA (TH)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ⚠️ Important Disclaimers
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+**THIS IS A DEMONSTRATION ONLY**
+
+- ❌ No real payment processing
+- ❌ No actual backend or database
+- ❌ No user authentication
+- ❌ Not a real supplement company
+- ❌ Medical/health claims are examples only
+- ❌ Certifications are for display purposes
+
+**Real health supplement websites should:**
+- Consult legal professionals for compliance
+- Obtain proper certifications
+- Follow FDA/regulatory guidelines
+- Implement secure payment processing
+- Provide verified medical disclaimers
+
+## 📝 License
+
+This project is for demonstration purposes only. Feel free to use as reference or learning material.
+
+## 🤝 Credits
+
+- **Images:** [Unsplash](https://unsplash.com)
+- **Icons:** Inline SVG
+- **Framework:** [Next.js](https://nextjs.org)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com)
+
+---
+
+**Built as a UI/UX demonstration project** | Not affiliated with any real supplement brand
