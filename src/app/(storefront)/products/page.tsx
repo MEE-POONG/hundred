@@ -182,7 +182,7 @@ export default function ProductsPage() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as any)}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/[0.08] focus:border-[rgb(var(--primary))] outline-none transition-colors"
+              className="px-4 py-2 rounded-xl bg-black border focus:border-[rgb(var(--primary))] outline-none transition-colors"
             >
               <option value="featured">แนะนำ</option>
               <option value="price-asc">ราคา: ต่ำ - สูง</option>
