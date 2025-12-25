@@ -23,19 +23,19 @@ export default function Header() {
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/products" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               สินค้า
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover/link:w-full transition-all duration-300"></span>
             </Link>
             <Link href="/tickets" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               🎫 ตั๋ว
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover/link:w-full transition-all duration-300"></span>
             </Link>
             <Link href="/orders" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               ออเดอร์
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover/link:w-full transition-all duration-300"></span>
             </Link>
             <Link href="/help" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               ช่วยเหลือ
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover/link:w-full transition-all duration-300"></span>
             </Link>
           </nav>
 
