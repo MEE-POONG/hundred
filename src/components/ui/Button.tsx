@@ -18,10 +18,10 @@ export default function Button({
   const baseStyles = 'font-semibold rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 
   const variants = {
-    primary: 'bg-gradient-primary text-white hover:glow-pink hover:scale-[1.02] active:scale-[0.98]',
-    outline: 'border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/10 hover:glow-pink',
-    ghost: 'text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] hover:bg-white/5',
-    danger: 'bg-[rgb(var(--error))] text-white hover:bg-[rgb(var(--error))]/90',
+    primary: 'bg-gradient-to-r from-[rgb(var(--primary))] to-[rgb(var(--secondary))] text-white shadow-[0_4px_15px_rgba(255,45,140,0.3)] hover:shadow-[0_8px_25px_rgba(255,45,140,0.4)] hover:glow-pink-sm hover:-translate-y-0.5 active:translate-y-0',
+    outline: 'border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/5 hover:glow-pink-sm backdrop-blur-sm',
+    ghost: 'text-[rgb(var(--text-muted))] hover:text-white hover:bg-white/5 transition-all',
+    danger: 'bg-[rgb(var(--error))]/80 text-white hover:bg-[rgb(var(--error))] shadow-lg shadow-red-500/20',
   };
 
   const sizes = {

@@ -9,9 +9,9 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-[rgb(var(--background))]/95 backdrop-blur-lg border-b border-white/[0.08]">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-40 glass-dark backdrop-blur-2xl border-b border-white/[0.05] shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="text-2xl font-bold text-gradient group-hover:glow-pink transition-all">
@@ -21,17 +21,21 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/products" className="text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors">
+            <Link href="/products" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               สินค้า
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/tickets" className="text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors">
-              🎫 ระบบตั๋ว
+            <Link href="/tickets" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
+              🎫 ตั๋ว
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/orders" className="text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors">
+            <Link href="/orders" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               ออเดอร์
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
             </Link>
-            <Link href="/help" className="text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors">
+            <Link href="/help" className="text-sm font-bold uppercase tracking-widest text-[rgb(var(--text-muted))] hover:text-[rgb(var(--primary))] transition-all duration-300 relative group/link">
               ช่วยเหลือ
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[rgb(var(--primary))] group-hover:link:w-full transition-all duration-300"></span>
             </Link>
           </nav>
 
