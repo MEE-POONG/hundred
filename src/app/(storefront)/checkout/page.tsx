@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
@@ -13,7 +13,7 @@ import EmptyState from '@/components/ui/EmptyState';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
-// Define Address Interface locally (since mock data might not export it or it's simple)
+// Define Address Interface
 interface Address {
   id: string;
   name: string;
@@ -100,12 +100,11 @@ export default function CheckoutPage() {
   const selectedIdsString = searchParams.get('selected');
   const selectedIds = selectedIdsString ? new Set(selectedIdsString.split(',')) : null;
 
-  // Filter items: If selectedIds exists, use it. Otherwise use all items (fallback)
+  // Filter items logic
   const checkoutItems = selectedIds
     ? items.filter(item => selectedIds.has(item.productId))
     : items;
 
-  // Calculate totals manually for checkout items
   const checkoutSubtotal = checkoutItems.reduce((sum, item) => {
     return sum + (item.salePrice || item.price) * item.quantity;
   }, 0);
@@ -113,29 +112,120 @@ export default function CheckoutPage() {
   // States
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
 
-  // Use State for addresses so we can add new ones
-  const [addresses, setAddresses] = useState<Address[]>(mockAddresses);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>(mockAddresses[0]?.id || '');
+  // Address State: Initialize sorted by default
+  const [addresses, setAddresses] = useState<Address[]>(() =>
+    [...mockAddresses].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
+  );
+
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(
+    mockAddresses.find(a => a.isDefault)?.id || mockAddresses[0]?.id || ''
+  );
 
   const [selectedShippingId, setSelectedShippingId] = useState<string>('standard');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('credit-card');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Modal State for adding address
-  const [isAddingAddress, setIsAddingAddress] = useState(false);
-  const [newAddress, setNewAddress] = useState<Partial<Address>>({});
+  // Modal State
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null); // If null, adding new
+  const [addressForm, setAddressForm] = useState<Partial<Address>>({});
 
-  // Calculate totals
+  // Calculations
   const selectedShipping = SHIPPING_METHODS.find(m => m.id === selectedShippingId);
-  const shippingPrice = selectedShipping?.price || 50;
-  // Free shipping logic (example: over 500)
-  const finalShippingPrice = checkoutSubtotal >= 500 ? 0 : shippingPrice;
+  const baseShippingPrice = selectedShipping?.price || 50;
+
+  // Shipping Logic: Discount 50 baht if order > 500
+  const isFreeShippingEligible = checkoutSubtotal >= 500;
+  // If eligible, discount up to 50 baht (so standard becomes free, express gets discount)
+  // Use Math.min so discount doesn't exceed shipping cost (e.g. if shipping is 30, discount is 30)
+  // But our shipping starts at 50, so discount is always 50.
+  const shippingDiscount = isFreeShippingEligible ? 50 : 0;
+  const finalShippingPrice = Math.max(0, baseShippingPrice - shippingDiscount);
+
   const total = checkoutSubtotal + finalShippingPrice;
 
   const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
   const selectedPayment = PAYMENT_METHODS.find(m => m.id === selectedPaymentId);
 
   // Handlers
+  const handleAddNew = () => {
+    setEditingAddressId(null);
+    setAddressForm({});
+    setIsAddressModalOpen(true);
+  };
+
+  const handleEdit = (addr: Address, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the radio
+    setEditingAddressId(addr.id);
+    setAddressForm({ ...addr });
+    setIsAddressModalOpen(true);
+  };
+
+  const handleDelete = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('คุณต้องการลบที่อยู่นี้ใช่หรือไม่?')) {
+      setAddresses(prev => prev.filter(a => a.id !== id));
+      if (selectedAddressId === id) {
+        setSelectedAddressId(''); // Deselect if deleted
+      }
+      showToast('ลบที่อยู่เรียบร้อยแล้ว', 'success');
+    }
+  };
+
+  const handleSetDefault = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAddresses(prev => {
+      const updated = prev.map(a => ({
+        ...a,
+        isDefault: a.id === id
+      }));
+      // Sort default to top
+      return updated.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+    });
+    showToast('ตั้งเป็นที่อยู่หลักเรียบร้อยแล้ว', 'success');
+  };
+
+  const handleAddressSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addressForm.name || !addressForm.address || !addressForm.province || !addressForm.postalCode || !addressForm.phone) {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+      return;
+    }
+
+    if (editingAddressId) {
+      // Edit existing
+      setAddresses(prev => prev.map(a =>
+        a.id === editingAddressId
+          ? { ...a, ...addressForm } as Address
+          : a
+      ));
+      showToast('แก้ไขที่อยู่เรียบร้อยแล้ว', 'success');
+    } else {
+      // Add new
+      const newId = `addr_${Date.now()}`;
+      const newAddr: Address = {
+        id: newId,
+        name: addressForm.name!,
+        address: addressForm.address!,
+        district: addressForm.district || '',
+        province: addressForm.province!,
+        postalCode: addressForm.postalCode!,
+        phone: addressForm.phone!,
+        isDefault: addresses.length === 0 // If it's the first address, make it default
+      };
+
+      // Add and Sort (if defaulted)
+      setAddresses(prev => {
+        const updated = [...prev, newAddr];
+        return updated.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
+      });
+      setSelectedAddressId(newId);
+      showToast('เพิ่มที่อยู่เรียบร้อยแล้ว', 'success');
+    }
+
+    setIsAddressModalOpen(false);
+  };
+
   const handleNextStep = () => {
     if (currentStep === 'address') {
       if (!selectedAddressId) {
@@ -156,32 +246,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleAddAddressSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAddress.name || !newAddress.address || !newAddress.province || !newAddress.postalCode || !newAddress.phone) {
-      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
-      return;
-    }
-
-    const newId = `addr_${Date.now()}`;
-    const addressToSave: Address = {
-      id: newId,
-      name: newAddress.name,
-      address: newAddress.address,
-      district: newAddress.district || '',
-      province: newAddress.province,
-      postalCode: newAddress.postalCode,
-      phone: newAddress.phone,
-      isDefault: false
-    };
-
-    setAddresses([...addresses, addressToSave]);
-    setSelectedAddressId(newId); // Auto select new address
-    setIsAddingAddress(false);
-    setNewAddress({}); // Reset form
-    showToast('เพิ่มที่อยู่สำเร็จ', 'success');
-  };
-
   const handleConfirmOrder = async () => {
     setIsProcessing(true);
     try {
@@ -200,7 +264,7 @@ export default function CheckoutPage() {
           })),
           subtotal: checkoutSubtotal,
           shipping: finalShippingPrice,
-          discount: 0,
+          discount: shippingDiscount, // Record discount too
           total,
           status: 'pending_payment',
           shippingAddress: selectedAddress,
@@ -221,16 +285,15 @@ export default function CheckoutPage() {
 
       const order = await res.json();
 
-      // Remove ONLY purchased items from cart
       checkoutItems.forEach(item => {
         removeItem(item.productId);
       });
 
-      showToast('สั่งซื้อสำเร็จ! กำลังไปยังหน้ารายละเอียดคำสั่งซื้อ', 'success');
-
+      showToast('สั่งซื้อสำเร็จ!', 'success');
       setTimeout(() => {
         router.push(`/orders/${order._id}`);
       }, 500);
+
     } catch (error) {
       showToast('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง', 'error');
       setIsProcessing(false);
@@ -263,16 +326,15 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2">
             {/* Progress Stepper */}
             <div className="mb-8">
+              {/* Stepper logic same as before... */}
               <div className="flex justify-between items-center">
                 {(['address', 'payment', 'review'] as const).map((step, index) => (
                   <React.Fragment key={step}>
                     <button
                       onClick={() => {
                         if (step === 'address') setCurrentStep('address');
-                        else if (step === 'payment' && currentStep !== 'address')
-                          setCurrentStep('payment');
-                        else if (step === 'review' && currentStep === 'review')
-                          setCurrentStep('review');
+                        else if (step === 'payment' && currentStep !== 'address') setCurrentStep('payment');
+                        else if (step === 'review' && currentStep === 'review') setCurrentStep('review');
                       }}
                       className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base transition-all ${currentStep === step
                         ? 'bg-gradient-primary text-white glow-pink'
@@ -283,23 +345,14 @@ export default function CheckoutPage() {
                     >
                       {currentStep > step ? '✓' : index + 1}
                     </button>
-
                     {index < 2 && (
-                      <div
-                        className={`flex-1 h-1 mx-2 rounded-full transition-all ${currentStep > step
-                          ? 'bg-[rgb(var(--success))]'
-                          : 'bg-[rgb(var(--surface))]'
-                          }`}
-                      />
+                      <div className={`flex-1 h-1 mx-2 rounded-full transition-all ${currentStep > step ? 'bg-[rgb(var(--success))]' : 'bg-[rgb(var(--surface))]'}`} />
                     )}
                   </React.Fragment>
                 ))}
               </div>
-
               <div className="flex justify-between mt-4 text-xs md:text-sm text-[rgb(var(--text-muted))]">
-                <span>ที่อยู่จัดส่ง</span>
-                <span>การจัดส่ง & ชำระเงิน</span>
-                <span>สรุปคำสั่งซื้อ</span>
+                <span>ที่อยู่จัดส่ง</span><span>การจัดส่ง & ชำระเงิน</span><span>สรุปคำสั่งซื้อ</span>
               </div>
             </div>
 
@@ -307,13 +360,10 @@ export default function CheckoutPage() {
             {currentStep === 'address' && (
               <Card elevated={true}>
                 <div className="p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">เลือกที่อยู่จัดส่ง</h2>
-                  </div>
-
+                  <h2 className="text-2xl font-bold mb-6">เลือกที่อยู่จัดส่ง</h2>
                   <div className="space-y-4">
                     {addresses.map((address) => (
-                      <div key={address.id} className="relative">
+                      <div key={address.id} className="relative group">
                         <input
                           type="radio"
                           id={`address-${address.id}`}
@@ -327,37 +377,67 @@ export default function CheckoutPage() {
                         <label
                           htmlFor={`address-${address.id}`}
                           className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedAddressId === address.id
-                            ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
+                            ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/5'
                             : 'border-white/[0.08] hover:border-white/[0.16]'
                             }`}
                         >
-                          <div className="flex justify-between items-start">
+                          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                             <div className="flex-1">
-                              <h3 className="font-bold text-lg">{address.name}</h3>
-                              <p className="text-[rgb(var(--text-muted))] text-sm mt-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-bold text-lg">{address.name}</h3>
+                                {address.isDefault && (
+                                  <Badge variant="pink" className="text-xs">
+                                    ที่อยู่หลัก
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[rgb(var(--text-muted))] text-sm">
                                 {address.address}
                               </p>
                               <p className="text-[rgb(var(--text-muted))] text-sm">
-                                {address.district}, {address.province} {address.postalCode}
+                                {address.district} {address.province} {address.postalCode}
                               </p>
-                              <p className="text-[rgb(var(--text-muted))] text-sm mt-2">
-                                โทรศัพท์: {address.phone}
+                              <p className="text-[rgb(var(--text-muted))] text-sm mt-2 flex items-center gap-2">
+                                📞 {address.phone}
                               </p>
                             </div>
 
-                            {address.isDefault && (
-                              <Badge variant="pink" className="ml-4">
-                                ที่อยู่หลัก
-                              </Badge>
-                            )}
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity self-end sm:self-start">
+                              {/* Set Default */}
+                              {!address.isDefault && (
+                                <button
+                                  onClick={(e) => handleSetDefault(address.id, e)}
+                                  title="ตั้งเป็นที่อยู่หลัก"
+                                  className="p-2 hover:bg-white/10 rounded-lg text-yellow-500 transition-colors"
+                                >
+                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                                </button>
+                              )}
+                              {/* Edit */}
+                              <button
+                                onClick={(e) => handleEdit(address, e)}
+                                title="แก้ไข"
+                                className="p-2 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                              </button>
+                              {/* Delete */}
+                              <button
+                                onClick={(e) => handleDelete(address.id, e)}
+                                title="ลบ"
+                                className="p-2 hover:bg-white/10 rounded-lg text-red-500 transition-colors"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </div>
                           </div>
                         </label>
                       </div>
                     ))}
 
-                    {/* Add Address Button */}
                     <button
-                      onClick={() => setIsAddingAddress(true)}
+                      onClick={handleAddNew}
                       className="w-full py-4 rounded-xl border-2 border-dashed border-white/20 hover:border-[rgb(var(--primary))] hover:text-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/5 transition-all flex items-center justify-center gap-2 text-[rgb(var(--text-muted))]"
                     >
                       <span className="text-2xl">+</span>
@@ -366,329 +446,174 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="mt-8 pt-6 border-t border-white/[0.08] flex gap-3 justify-end">
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push('/cart')}
-                    >
-                      กลับไปตะกร้า
-                    </Button>
-                    <Button onClick={handleNextStep}>
-                      ต่อไป: การจัดส่ง
-                    </Button>
+                    <Button variant="outline" onClick={() => router.push('/cart')}>กลับไปตะกร้า</Button>
+                    <Button onClick={handleNextStep}>ต่อไป: การจัดส่ง</Button>
                   </div>
                 </div>
               </Card>
             )}
 
-            {/* Step 2: Shipping and Payment */}
+            {/* Other steps (payment/review) same as previous ... */}
             {currentStep === 'payment' && (
               <Card elevated={true}>
                 <div className="p-6 space-y-8">
-                  {/* Shipping Method */}
                   <div>
                     <h2 className="text-2xl font-bold mb-6">วิธีการจัดส่ง</h2>
                     <div className="space-y-3">
                       {SHIPPING_METHODS.map((method) => (
                         <div key={method.id} className="relative">
-                          <input
-                            type="radio"
-                            id={`shipping-${method.id}`}
-                            name="shipping"
-                            value={method.id}
-                            checked={selectedShippingId === method.id}
-                            onChange={(e) => setSelectedShippingId(e.target.value)}
-                            className="sr-only"
-                          />
-                          <label
-                            htmlFor={`shipping-${method.id}`}
-                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedShippingId === method.id
-                              ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
-                              : 'border-white/[0.08] hover:border-white/[0.16]'
-                              }`}
-                          >
+                          <input type="radio" id={`shipping-${method.id}`} name="shipping" value={method.id} checked={selectedShippingId === method.id} onChange={(e) => setSelectedShippingId(e.target.value)} className="sr-only" />
+                          <label htmlFor={`shipping-${method.id}`} className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedShippingId === method.id ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10' : 'border-white/[0.08] hover:border-white/[0.16]'}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <span className="text-3xl">{method.icon}</span>
-                                <div>
-                                  <h3 className="font-bold">{method.name}</h3>
-                                  <p className="text-sm text-[rgb(var(--text-muted))]">
-                                    {method.description}
-                                  </p>
-                                </div>
+                                <div><h3 className="font-bold">{method.name}</h3><p className="text-sm text-[rgb(var(--text-muted))]">{method.description}</p></div>
                               </div>
-                              <span className="font-bold text-lg">
-                                {method.price === 0 ? 'ฟรี' : `${method.price} บาท`}
-                              </span>
+                              <span className="font-bold text-lg">{method.price === 0 ? 'ฟรี' : `${method.price} บาท`}</span>
                             </div>
                           </label>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Divider */}
                   <div className="border-t border-white/[0.08]" />
-
-                  {/* Payment Method */}
                   <div>
                     <h2 className="text-2xl font-bold mb-6">วิธีชำระเงิน</h2>
                     <div className="space-y-3">
                       {PAYMENT_METHODS.map((method) => (
                         <div key={method.id} className="relative">
-                          <input
-                            type="radio"
-                            id={`payment-${method.id}`}
-                            name="payment"
-                            value={method.id}
-                            checked={selectedPaymentId === method.id}
-                            onChange={(e) => setSelectedPaymentId(e.target.value)}
-                            className="sr-only"
-                          />
-                          <label
-                            htmlFor={`payment-${method.id}`}
-                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPaymentId === method.id
-                              ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
-                              : 'border-white/[0.08] hover:border-white/[0.16]'
-                              }`}
-                          >
+                          <input type="radio" id={`payment-${method.id}`} name="payment" value={method.id} checked={selectedPaymentId === method.id} onChange={(e) => setSelectedPaymentId(e.target.value)} className="sr-only" />
+                          <label htmlFor={`payment-${method.id}`} className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPaymentId === method.id ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10' : 'border-white/[0.08] hover:border-white/[0.16]'}`}>
                             <div className="flex items-center gap-3">
                               <span className="text-3xl">{method.icon}</span>
-                              <div>
-                                <h3 className="font-bold">{method.name}</h3>
-                                <p className="text-sm text-[rgb(var(--text-muted))]">
-                                  {method.description}
-                                </p>
-                              </div>
+                              <div><h3 className="font-bold">{method.name}</h3><p className="text-sm text-[rgb(var(--text-muted))]">{method.description}</p></div>
                             </div>
                           </label>
                         </div>
                       ))}
                     </div>
                   </div>
-
                   <div className="pt-6 border-t border-white/[0.08] flex gap-3 justify-between">
-                    <Button
-                      variant="outline"
-                      onClick={handlePrevStep}
-                    >
-                      ย้อนกลับ
-                    </Button>
-                    <Button onClick={handleNextStep}>
-                      สรุปคำสั่งซื้อ
-                    </Button>
+                    <Button variant="outline" onClick={handlePrevStep}>ย้อนกลับ</Button>
+                    <Button onClick={handleNextStep}>สรุปคำสั่งซื้อ</Button>
                   </div>
                 </div>
               </Card>
             )}
 
-            {/* Step 3: Review */}
             {currentStep === 'review' && (
               <div className="space-y-4">
-                {/* Delivery Address */}
                 <Card elevated={true}>
                   <div className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-2xl">📍</span>
-                      <h3 className="text-lg font-bold">ที่อยู่จัดส่ง</h3>
-                    </div>
-
+                    <div className="flex items-center gap-3 mb-4"><span className="text-2xl">📍</span><h3 className="text-lg font-bold">ที่อยู่จัดส่ง</h3></div>
                     {selectedAddress && (
                       <div className="bg-[rgb(var(--background))]/50 rounded-xl p-4">
                         <p className="font-semibold mb-2">{selectedAddress.name}</p>
-                        <p className="text-sm text-[rgb(var(--text-muted))]">
-                          {selectedAddress.address}
-                        </p>
-                        <p className="text-sm text-[rgb(var(--text-muted))]">
-                          {selectedAddress.district}, {selectedAddress.province} {selectedAddress.postalCode}
-                        </p>
-                        <p className="text-sm text-[rgb(var(--text-muted))] mt-2">
-                          โทรศัพท์: {selectedAddress.phone}
-                        </p>
+                        <p className="text-sm text-[rgb(var(--text-muted))]">{selectedAddress.address}</p>
+                        <p className="text-sm text-[rgb(var(--text-muted))]">{selectedAddress.district} {selectedAddress.province} {selectedAddress.postalCode}</p>
+                        <p className="text-sm text-[rgb(var(--text-muted))] mt-2">📞 {selectedAddress.phone}</p>
                       </div>
                     )}
                   </div>
                 </Card>
-
-                {/* Shipping and Payment Info Cards... */}
-                {/* Same as before */}
-                <Card elevated={true}>
-                  <div className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="text-2xl">{selectedShipping?.icon}</span>
-                      <div>
-                        <h3 className="text-lg font-bold">{selectedShipping?.name}</h3>
-                        <p className="text-sm text-[rgb(var(--text-muted))]">
-                          {selectedShipping?.description}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="font-semibold text-[rgb(var(--primary))]">
-                      {selectedShipping?.price === 0 ? 'ฟรี' : `${selectedShipping?.price} บาท`}
-                    </p>
-                  </div>
-                </Card>
-
-                <Card elevated={true}>
-                  <div className="p-6">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{selectedPayment?.icon}</span>
-                      <div>
-                        <h3 className="text-lg font-bold">{selectedPayment?.name}</h3>
-                        <p className="text-sm text-[rgb(var(--text-muted))]">
-                          {selectedPayment?.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
+                {/* Shipping & Payment Cards (Brief) */}
+                <Card elevated={true}><div className="p-6"><div className="flex items-center gap-3"><span className="text-2xl">{selectedShipping?.icon}</span><div><h3 className="text-lg font-bold">{selectedShipping?.name}</h3></div></div></div></Card>
                 <div className="pt-6 border-t border-white/[0.08] flex gap-3 justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevStep}
-                    disabled={isProcessing}
-                  >
-                    ย้อนกลับ
-                  </Button>
-                  <Button
-                    onClick={handleConfirmOrder}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? 'กำลังสร้างคำสั่ง...' : 'ยืนยันคำสั่งซื้อ'}
-                  </Button>
+                  <Button variant="outline" onClick={handlePrevStep} disabled={isProcessing}>ย้อนกลับ</Button>
+                  <Button onClick={handleConfirmOrder} disabled={isProcessing}>{isProcessing ? 'กำลังสร้างคำสั่ง...' : 'ยืนยันคำสั่งซื้อ'}</Button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Order Summary Sidebar */}
+          {/* Sidebar Summary */}
           <div className="lg:col-span-1">
             <Card elevated={true} className="sticky top-20">
               <div className="p-6 space-y-4">
                 <h2 className="text-xl font-bold">สรุปคำสั่งซื้อ</h2>
-                {/* Same as before */}
                 <div className="max-h-64 overflow-y-auto space-y-3 py-4 border-y border-white/[0.08]">
                   {checkoutItems.map((item) => (
                     <div key={item.productId} className="flex justify-between text-sm">
-                      <div>
-                        <p className="font-medium">{item.productName}</p>
-                        <p className="text-xs text-[rgb(var(--text-muted))]">
-                          x{item.quantity}
-                        </p>
-                      </div>
-                      <p className="font-semibold">
-                        {(item.salePrice || item.price) * item.quantity}
-                      </p>
+                      <div><p className="font-medium">{item.productName}</p><p className="text-xs text-[rgb(var(--text-muted))]">x{item.quantity}</p></div>
+                      <p className="font-semibold">{(item.salePrice || item.price) * item.quantity}</p>
                     </div>
                   ))}
                 </div>
-
                 <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-[rgb(var(--text-muted))]">รวมสินค้า</span><span className="font-semibold">{checkoutSubtotal.toFixed(2)} บาท</span></div>
+
+                  {isFreeShippingEligible && (
+                    <div className="flex justify-between text-[rgb(var(--success))]">
+                      <span>โปรโมชั่นส่งฟรี</span>
+                      <span>-50.00 บาท</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
-                    <span className="text-[rgb(var(--text-muted))]">รวมสินค้า</span>
-                    <span className="font-semibold">{checkoutSubtotal.toFixed(2)} บาท</span>
+                    <span className="text-[rgb(var(--text-muted))]">ค่าจัดส่ง ({selectedShipping?.name})</span>
+                    <span className="font-semibold">{baseShippingPrice} บาท</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-[rgb(var(--text-muted))]">ค่าจัดส่ง</span>
-                    <span className="font-semibold">{finalShippingPrice} บาท</span>
-                  </div>
+
+                  {finalShippingPrice === 0 && (
+                    <div className="flex justify-between text-[rgb(var(--success))] font-bold py-2 border-t border-white/10 mt-2">
+                      <span>ราคารวมค่าส่ง</span>
+                      <span>ฟรี</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-white/[0.08]">
                   <div className="flex justify-between items-center">
                     <span className="font-bold">รวมทั้งสิ้น</span>
-                    <span className="text-gradient text-2xl font-bold">
-                      {total.toFixed(2)} บาท
-                    </span>
+                    <span className="text-gradient text-2xl font-bold">{total.toFixed(2)} บาท</span>
                   </div>
                 </div>
-
-                {currentStep !== 'review' && (
-                  <div className="bg-[rgb(var(--primary))]/10 border border-[rgb(var(--primary))]/30 rounded-xl p-3 text-xs text-[rgb(var(--primary))]">
-                    ✓ จะชำระเงินเฉพาะรายการที่เลือก ({checkoutItems.length} รายการ)
-                  </div>
-                )}
               </div>
             </Card>
           </div>
         </div>
       </div>
 
-      {/* Add Address Modal */}
-      {isAddingAddress && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
-            <h2 className="text-2xl font-bold mb-6 text-gradient">เพิ่มที่อยู่จัดส่งใหม่</h2>
+      {/* Address Modal */}
+      {isAddressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <h2 className="text-2xl font-bold mb-6 text-gradient">
+              {editingAddressId ? 'แก้ไขที่อยู่' : 'เพิ่มที่อยู่ใหม่'}
+            </h2>
 
-            <form onSubmit={handleAddAddressSubmit} className="space-y-4">
+            <form onSubmit={handleAddressSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ชื่อ-นามสกุล</label>
-                <input
-                  type="text"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
-                  placeholder="เช่น สมชาย ใจดี"
-                  value={newAddress.name || ''}
-                  onChange={e => setNewAddress({ ...newAddress, name: e.target.value })}
-                />
+                <input type="text" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="เช่น สมชาย ใจดี"
+                  value={addressForm.name || ''} onChange={e => setAddressForm({ ...addressForm, name: e.target.value })} />
               </div>
-
               <div>
                 <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">เบอร์โทรศัพท์</label>
-                <input
-                  type="tel"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
-                  placeholder="08X-XXX-XXXX"
-                  value={newAddress.phone || ''}
-                  onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
-                />
+                <input type="tel" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="08X-XXX-XXXX"
+                  value={addressForm.phone || ''} onChange={e => setAddressForm({ ...addressForm, phone: e.target.value })} />
               </div>
-
               <div>
-                <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ที่อยู่ (บ้านเลขที่, ซอย, ถนน)</label>
-                <textarea
-                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
-                  rows={2}
-                  placeholder="บ้านเลขที่..."
-                  value={newAddress.address || ''}
-                  onChange={e => setNewAddress({ ...newAddress, address: e.target.value })}
-                />
+                <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ที่อยู่</label>
+                <textarea required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" rows={2} placeholder="บ้านเลขที่..."
+                  value={addressForm.address || ''} onChange={e => setAddressForm({ ...addressForm, address: e.target.value })} />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">จังหวัด</label>
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
-                    placeholder="กรุงเทพฯ"
-                    value={newAddress.province || ''}
-                    onChange={e => setNewAddress({ ...newAddress, province: e.target.value })}
-                  />
+                  <input type="text" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="กรุงเทพฯ"
+                    value={addressForm.province || ''} onChange={e => setAddressForm({ ...addressForm, province: e.target.value })} />
                 </div>
                 <div>
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">รหัสไปรษณีย์</label>
-                  <input
-                    type="text"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
-                    placeholder="10XXX"
-                    value={newAddress.postalCode || ''}
-                    onChange={e => setNewAddress({ ...newAddress, postalCode: e.target.value })}
-                  />
+                  <input type="text" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="10XXX"
+                    value={addressForm.postalCode || ''} onChange={e => setAddressForm({ ...addressForm, postalCode: e.target.value })} />
                 </div>
               </div>
 
               <div className="pt-4 flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  fullWidth
-                  onClick={() => setIsAddingAddress(false)}
-                >
-                  ยกเลิก
-                </Button>
-                <Button type="submit" fullWidth>
-                  บันทึกที่อยู่
-                </Button>
+                <Button type="button" variant="outline" fullWidth onClick={() => setIsAddressModalOpen(false)}>ยกเลิก</Button>
+                <Button type="submit" fullWidth>บันทึก</Button>
               </div>
             </form>
           </div>

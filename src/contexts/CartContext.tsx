@@ -1,8 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { CartItem } from '@/data/types';
-import { getProductById } from '@/data/products';
 
 interface CartContextType {
   items: CartItem[];
@@ -12,22 +11,48 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   subtotal: number;
+  isLoaded: boolean; // Add loading state
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CART_STORAGE_KEY = 'supplement_shop_cart';
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (storedCart) {
+        setItems(JSON.parse(storedCart));
+      }
+    } catch (error) {
+      console.error('Failed to load cart from localStorage:', error);
+    } finally {
+      setIsLoaded(true);
+    }
+  }, []);
+
+  // Save to localStorage whenever items change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    }
+  }, [items, isLoaded]);
 
   const addItem = useCallback((product: any, quantity = 1, variants?: Record<string, string>) => {
     if (!product) return;
 
     setItems(prev => {
-      const existing = prev.find(item => item.productId === product.id || item.productId === product._id);
+      const productId = product.id || product._id;
+      const existing = prev.find(item => item.productId === productId);
 
       if (existing) {
         return prev.map(item =>
-          item.productId === (product.id || product._id)
+          item.productId === productId
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -36,7 +61,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [
         ...prev,
         {
-          productId: product.id || product._id,
+          productId: productId,
           productName: product.name,
           productImage: product.images?.[0] || '',
           price: product.price,
@@ -66,6 +91,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
+    localStorage.removeItem(CART_STORAGE_KEY);
   }, []);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -75,7 +101,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, subtotal }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, subtotal, isLoaded }}>
       {children}
     </CartContext.Provider>
   );

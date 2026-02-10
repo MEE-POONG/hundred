@@ -7,7 +7,7 @@ import { useCart } from '@/contexts/CartContext';
 
 export default function Header() {
   const { totalItems } = useCart();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -54,7 +54,12 @@ export default function Header() {
             </Link>
 
             {/* Auth Section - Desktop */}
-            {session ? (
+            {status === 'loading' ? (
+              <div className="hidden md:flex items-center gap-2 animate-pulse">
+                <div className="w-8 h-8 bg-white/10 rounded-full"></div>
+                <div className="w-20 h-4 bg-white/10 rounded"></div>
+              </div>
+            ) : session ? (
               <div className="hidden md:flex items-center gap-2">
                 <Link
                   href="/account"
