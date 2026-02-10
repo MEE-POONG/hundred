@@ -20,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={prompt.className}>
-      <body className="min-h-screen">
+    <html lang="th" className={prompt.className} suppressHydrationWarning>
+      <body className="min-h-screen" suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>

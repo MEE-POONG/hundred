@@ -78,32 +78,33 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">สินค้าทั้งหมด</h1>
-        <p className="text-[rgb(var(--text-muted))]">
+      <div className="mb-5 sm:mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-4">สินค้าทั้งหมด</h1>
+        <p className="text-xs sm:text-sm md:text-base text-[rgb(var(--text-muted))]">
           อาหารเสริมคุณภาพ ได้มาตรฐาน อย. เลือกซื้อได้ตามต้องการ
         </p>
       </div>
 
-      <div className="flex gap-8">
+      <div className="flex gap-6 lg:gap-8">
         {/* Sidebar Filters - Desktop */}
-        <aside className="hidden lg:block w-64 flex-shrink-0">
-          <div className="card-surface p-6 sticky top-24 space-y-6">
+        <aside className="hidden lg:block w-60 xl:w-64 flex-shrink-0">
+          <div className="card-surface p-5 xl:p-6 sticky top-20 space-y-5">
             <div>
-              <h3 className="font-semibold mb-3">ค้นหา</h3>
+              <h3 className="font-semibold mb-3 text-sm">ค้นหา</h3>
               <input
                 type="text"
                 placeholder="ค้นหาสินค้า..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl bg-white/5 border border-white/[0.08] focus:border-[rgb(var(--primary))] outline-none transition-colors"
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/5 border border-white/[0.08] focus:border-[rgb(var(--primary))] outline-none transition-colors"
+                suppressHydrationWarning
               />
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3">หมวดหมู่</h3>
+              <h3 className="font-semibold mb-3 text-sm">หมวดหมู่</h3>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -111,6 +112,7 @@ export default function ProductsPage() {
                     checked={!selectedCategory}
                     onChange={() => setSelectedCategory('')}
                     className="accent-[rgb(var(--primary))]"
+                    suppressHydrationWarning
                   />
                   <span className="text-sm">ทั้งหมด</span>
                 </label>
@@ -121,6 +123,7 @@ export default function ProductsPage() {
                       checked={selectedCategory === cat.slug}
                       onChange={() => setSelectedCategory(cat.slug)}
                       className="accent-[rgb(var(--primary))]"
+                      suppressHydrationWarning
                     />
                     <span className="text-sm">{cat.icon} {cat.name}</span>
                   </label>
@@ -129,7 +132,7 @@ export default function ProductsPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3">ราคา</h3>
+              <h3 className="font-semibold mb-3 text-sm">ราคา</h3>
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <span>฿{priceRange[0]}</span>
@@ -144,12 +147,13 @@ export default function ProductsPage() {
                   value={priceRange[1]}
                   onChange={e => setPriceRange([0, parseInt(e.target.value)])}
                   className="w-full accent-[rgb(var(--primary))]"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3">คะแนนขั้นต่ำ</h3>
+              <h3 className="font-semibold mb-3 text-sm">คะแนนขั้นต่ำ</h3>
               <div className="space-y-2">
                 {[0, 3, 4, 4.5].map(rating => (
                   <label key={rating} className="flex items-center gap-2 cursor-pointer">
@@ -158,6 +162,7 @@ export default function ProductsPage() {
                       checked={minRating === rating}
                       onChange={() => setMinRating(rating)}
                       className="accent-[rgb(var(--primary))]"
+                      suppressHydrationWarning
                     />
                     <span className="text-sm flex items-center gap-1">
                       {rating > 0 ? `${rating}+ ⭐` : 'ทั้งหมด'}
@@ -174,6 +179,7 @@ export default function ProductsPage() {
                   checked={inStockOnly}
                   onChange={e => setInStockOnly(e.target.checked)}
                   className="accent-[rgb(var(--primary))]"
+                  suppressHydrationWarning
                 />
                 <span className="text-sm">มีสินค้าในสต็อกเท่านั้น</span>
               </label>
@@ -186,7 +192,7 @@ export default function ProductsPage() {
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {/* Mobile Filter Button */}
           <div className="lg:hidden mb-4">
             <Button onClick={() => setFilterOpen(!filterOpen)} fullWidth>
@@ -194,15 +200,57 @@ export default function ProductsPage() {
             </Button>
           </div>
 
+          {/* Mobile Filter Panel */}
+          {filterOpen && (
+            <div className="lg:hidden card-surface p-4 mb-4 space-y-4 animate-scale-in">
+              <div>
+                <h3 className="font-semibold mb-2 text-sm">ค้นหา</h3>
+                <input
+                  type="text"
+                  placeholder="ค้นหาสินค้า..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-white/5 border border-white/[0.08] focus:border-[rgb(var(--primary))] outline-none transition-colors"
+                  suppressHydrationWarning
+                />
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2 text-sm">หมวดหมู่</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedCategory('')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${!selectedCategory ? 'bg-gradient-primary text-white' : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'}`}
+                  >
+                    ทั้งหมด
+                  </button>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedCategory === cat.slug ? 'bg-gradient-primary text-white' : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'}`}
+                    >
+                      {cat.icon} {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleClearFilters} size="sm" fullWidth>ล้างตัวกรอง</Button>
+                <Button onClick={() => setFilterOpen(false)} size="sm" fullWidth>ปิด</Button>
+              </div>
+            </div>
+          )}
+
           {/* Top Bar */}
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-[rgb(var(--text-muted))]">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
+            <p className="text-xs sm:text-sm text-[rgb(var(--text-muted))] whitespace-nowrap">
               พบ {filteredProducts.length} รายการ
             </p>
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as any)}
-              className="px-4 py-2 rounded-xl bg-black border focus:border-[rgb(var(--primary))] outline-none transition-colors"
+              className="px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-xl bg-black border focus:border-[rgb(var(--primary))] outline-none transition-colors"
+              suppressHydrationWarning
             >
               <option value="featured">แนะนำ</option>
               <option value="price-asc">ราคา: ต่ำ - สูง</option>
@@ -213,7 +261,7 @@ export default function ProductsPage() {
 
           {/* Products Grid */}
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
@@ -227,7 +275,7 @@ export default function ProductsPage() {
               onAction={handleClearFilters}
             />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {filteredProducts.map(product => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -238,3 +286,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

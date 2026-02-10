@@ -33,6 +33,7 @@ export default function Button({
   return (
     <button
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
+      suppressHydrationWarning
       {...props}
     >
       {children}
