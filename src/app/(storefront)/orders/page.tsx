@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Order } from '@/data/types';
+
+type OrderWithId = Order & { _id?: string };
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
@@ -19,7 +21,7 @@ const statusConfig = {
 type OrderStatus = keyof typeof statusConfig;
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
 
@@ -82,8 +84,8 @@ export default function OrdersPage() {
             key={status}
             onClick={() => setSelectedStatus(status)}
             className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-all ${selectedStatus === status
-                ? 'bg-gradient-primary text-white glow-pink'
-                : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
+              ? 'bg-gradient-primary text-white glow-pink'
+              : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
               }`}
           >
             {status === 'all' ? 'ทั้งหมด' : statusConfig[status as OrderStatus].label}
@@ -102,7 +104,7 @@ export default function OrdersPage() {
           filteredOrders.map(order => {
             const status = statusConfig[order.status];
             return (
-              <Link key={order.id} href={`/orders/${order.id}`}>
+              <Link key={order._id || order.id} href={`/orders/${order._id || order.id}`}>
                 <Card
                   hover
                   className="p-6 transition-all"
