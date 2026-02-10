@@ -13,48 +13,56 @@ import Modal from '@/components/ui/Modal';
 type TabType = 'draw' | 'redeem' | 'vault';
 
 function DrawTabContent() {
-  const { drawNewTicket, addDrawHistory, ownedTickets } = useTickets();
+  const { drawNewTicket, drawChances } = useTickets();
   const [isSpinning, setIsSpinning] = useState(false);
   const [drawnTicket, setDrawnTicket] = useState<TicketType | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const handleDraw = async () => {
+    if (drawChances <= 0) return;
     setIsSpinning(true);
+    // Simulate spin delay
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    const ticket = drawNewTicket();
-    setDrawnTicket(ticket);
-    addDrawHistory(ticket);
+    const ticket = await drawNewTicket();
     setIsSpinning(false);
-    setShowModal(true);
+
+    if (ticket) {
+      setDrawnTicket(ticket);
+      setShowModal(true);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="text-center py-12">
-        <div className="mb-8">
+        <div className="mb-8 relative inline-block">
           <div
-            className={`inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-[rgb(var(--primary))] to-[rgb(var(--secondary))] ${
-              isSpinning ? 'animate-spin' : ''
-            }`}
+            className={`inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-[rgb(var(--primary))] to-[rgb(var(--secondary))] ${isSpinning ? 'animate-spin' : ''
+              }`}
             style={{
               animationDuration: isSpinning ? '0.8s' : 'unset',
             }}
           >
             <span className="text-6xl">🎫</span>
           </div>
+          <div className="absolute -bottom-2 -right-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full">
+            <span className="text-sm font-bold text-white">x{drawChances}</span>
+          </div>
         </div>
         <h3 className="text-2xl font-bold mb-3">สุ่มตั๋วฟรี</h3>
         <p className="text-[rgb(var(--text-muted))] mb-8 max-w-md mx-auto">
+          คุณมีสิทธิ์สุ่ม <strong>{drawChances}</strong> ครั้ง
+          <br />
           สุ่มตั๋วไปรังวัลสุ่มทุกวัน ลุ้นตั๋วพิเศษได้รับสินค้าและของรางวัล
         </p>
         <Button
           size="lg"
           onClick={handleDraw}
-          disabled={isSpinning}
+          disabled={isSpinning || drawChances <= 0}
           className={isSpinning ? 'opacity-70' : ''}
         >
-          {isSpinning ? '⏳ กำลังสุ่ม...' : '🎲 สุ่มตั๋วเลย'}
+          {isSpinning ? '⏳ กำลังสุ่ม...' : (drawChances > 0 ? '🎲 สุ่มตั๋วเลย' : 'หมดสิทธิ์สุ่ม')}
         </Button>
       </div>
 
@@ -94,12 +102,27 @@ function DrawTabContent() {
 }
 
 function RedeemTabContent() {
-  const { ownedTickets, removeTickets } = useTickets();
-  const products = [1, 2, 3, 4, 5, 6].map(i => getProductById(`p${i}`)).filter(Boolean);
+  const { ownedTickets, redeemProduct } = useTickets();
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const getRedeemableProducts = () => {
-    return products.filter(product => product?.redeemable);
-  };
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        // Map _id to id and filter redeemable
+        const redeemable = data
+          .map((p: any) => ({ ...p, id: p._id }))
+          .filter((p: any) => p.redeemable && p.redeemable.requiredTickets?.length > 0);
+        setProducts(redeemable);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
 
   const canRedeemProduct = (product: any) => {
     if (!product.redeemable) return false;
@@ -109,35 +132,34 @@ function RedeemTabContent() {
     });
   };
 
-  const handleRedeem = (product: any) => {
-    if (!product.redeemable) return;
+  const handleRedeem = async (product: any) => {
+    if (!confirm(`ยืนยันการแลกสินค้า ${product.name}?`)) return;
 
-    const success = product.redeemable.requiredTickets.every((required: any) => {
-      return removeTickets(
-        ticketTypes.find(t => t.rarity === required.rarity)?.id || '',
-        required.quantity
-      );
-    });
+    setProcessingId(product.id);
+    const success = await redeemProduct(product.id);
+    setProcessingId(null);
 
     if (success) {
-      alert(`แลกสินค้า ${product.name} สำเร็จ!`);
+      alert(`แลกสินค้าสำเร็จ! Admin จะทำการตรวจสอบและจัดส่งให้คุณ`);
     }
   };
 
-  const redeemableProducts = getRedeemableProducts();
+  if (loading) {
+    return <div className="text-center py-12 text-[rgb(var(--text-muted))]">กำลังโหลดสินค้าแลกแต้ม...</div>;
+  }
 
   return (
     <div className="space-y-6">
-      {redeemableProducts.length === 0 ? (
+      {products.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="text-4xl mb-3">📭</div>
           <p className="text-[rgb(var(--text-muted))]">ยังไม่มีสินค้าให้แลก</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {redeemableProducts.map(product => {
-            if (!product?.redeemable) return null;
+          {products.map(product => {
             const canRedeem = canRedeemProduct(product);
+            const isProcessing = processingId === product.id;
 
             return (
               <Card key={product.id} className="p-6 overflow-hidden">
@@ -153,7 +175,7 @@ function RedeemTabContent() {
 
                 <div className="mb-4 space-y-2">
                   <p className="text-xs text-[rgb(var(--text-muted))] font-semibold">แสดงต้องใช้:</p>
-                  {product.redeemable.requiredTickets.map((req, idx) => {
+                  {product.redeemable.requiredTickets.map((req: any, idx: number) => {
                     const ticketType = ticketTypes.find(t => t.rarity === req.rarity);
                     const owned = ownedTickets.find(t => t.rarity === req.rarity);
                     const hasEnough = (owned?.quantity || 0) >= req.quantity;
@@ -161,11 +183,10 @@ function RedeemTabContent() {
                     return (
                       <div
                         key={idx}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-                          hasEnough
-                            ? 'bg-[rgb(var(--success))]/10'
-                            : 'bg-[rgb(var(--error))]/10'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg ${hasEnough
+                          ? 'bg-[rgb(var(--success))]/10'
+                          : 'bg-[rgb(var(--error))]/10'
+                          }`}
                       >
                         <span className="text-lg">{ticketType?.icon}</span>
                         <span className="text-sm">
@@ -178,10 +199,10 @@ function RedeemTabContent() {
 
                 <Button
                   fullWidth
-                  disabled={!canRedeem}
+                  disabled={!canRedeem || isProcessing}
                   onClick={() => handleRedeem(product)}
                 >
-                  {canRedeem ? '✨ แลกสินค้า' : '🔒 ไม่พอตั๋ว'}
+                  {isProcessing ? 'กำลังดำเนินการ...' : (canRedeem ? '✨ แลกสินค้า' : '🔒 ไม่พอตั๋ว')}
                 </Button>
               </Card>
             );
@@ -201,21 +222,19 @@ function VaultTabContent() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setActiveSubTab('owned')}
-          className={`px-4 py-2 rounded-full font-semibold transition-all ${
-            activeSubTab === 'owned'
-              ? 'bg-gradient-primary text-white glow-pink'
-              : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
+          className={`px-4 py-2 rounded-full font-semibold transition-all ${activeSubTab === 'owned'
+            ? 'bg-gradient-primary text-white glow-pink'
+            : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
+            }`}
         >
           ตั๋วของฉัน
         </button>
         <button
           onClick={() => setActiveSubTab('history')}
-          className={`px-4 py-2 rounded-full font-semibold transition-all ${
-            activeSubTab === 'history'
-              ? 'bg-gradient-primary text-white glow-pink'
-              : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
+          className={`px-4 py-2 rounded-full font-semibold transition-all ${activeSubTab === 'history'
+            ? 'bg-gradient-primary text-white glow-pink'
+            : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
+            }`}
         >
           ประวัติการแลก
         </button>
@@ -361,11 +380,10 @@ function TicketsHubContent() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as TabType)}
-            className={`px-6 py-3 rounded-full font-semibold whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-gradient-primary text-white glow-pink'
-                : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-            }`}
+            className={`px-6 py-3 rounded-full font-semibold whitespace-nowrap transition-all ${activeTab === tab.id
+              ? 'bg-gradient-primary text-white glow-pink'
+              : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
+              }`}
           >
             {tab.label}
           </button>

@@ -46,6 +46,8 @@ const ProductSchema = new Schema({
   redeemable: RedeemRuleSchema,
 }, {
   timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true },
 });
 
 // Virtual for isInStock

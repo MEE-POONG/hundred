@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getOrderById } from '@/data/orders';
 import { Order, OrderTimeline } from '@/data/types';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -60,9 +59,36 @@ const getTimelineSteps = (order: Order): OrderTimeline[] => {
 export default function OrderDetailPage() {
   const params = useParams();
   const orderId = params.id as string;
-  const order = getOrderById(orderId);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<OrderStatus>(order?.status as OrderStatus);
+  const [currentStatus, setCurrentStatus] = useState<OrderStatus>('pending_payment');
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrder(data);
+          setCurrentStatus(data.status as OrderStatus);
+        }
+      } catch (err) {
+        console.error('Failed to fetch order:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (orderId) fetchOrder();
+  }, [orderId]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -133,13 +159,12 @@ export default function OrderDetailPage() {
                 {timelineSteps.map((step, index) => (
                   <div key={index} className="relative pl-20">
                     <div
-                      className={`absolute left-0 w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold transition-all duration-300 ${
-                        step.completed
+                      className={`absolute left-0 w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold transition-all duration-300 ${step.completed
                           ? 'bg-gradient-primary text-white glow-pink scale-100'
                           : currentStatus === step.status
-                          ? 'bg-white/10 border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] animate-pulse'
-                          : 'bg-white/5 border-2 border-white/20 text-[rgb(var(--text-muted))]'
-                      }`}
+                            ? 'bg-white/10 border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] animate-pulse'
+                            : 'bg-white/5 border-2 border-white/20 text-[rgb(var(--text-muted))]'
+                        }`}
                     >
                       {step.completed ? '✓' : index + 1}
                     </div>

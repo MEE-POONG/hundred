@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import { mockAddresses } from '@/data/addresses';
@@ -133,20 +134,47 @@ export default function CheckoutPage() {
   const handleConfirmOrder = async () => {
     setIsProcessing(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: items.map(item => ({
+            productId: item.productId,
+            productName: item.productName,
+            productImage: item.productImage,
+            price: item.price,
+            salePrice: item.salePrice,
+            quantity: item.quantity,
+            selectedVariants: item.selectedVariants,
+          })),
+          subtotal,
+          shipping: shippingPrice,
+          discount: 0,
+          total,
+          status: 'pending_payment',
+          shippingAddress: selectedAddress,
+          paymentMethod: selectedPaymentId,
+          shippingMethod: selectedShippingId,
+        }),
+      });
 
-      // Generate mock order
-      const orderId = Math.random().toString(36).substring(2, 15);
-      const orderNumber = `ORD-${Date.now()}`;
+      if (!res.ok) {
+        const data = await res.json();
+        if (res.status === 401) {
+          showToast('กรุณาเข้าสู่ระบบก่อนสั่งซื้อ', 'error');
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error(data.error || 'เกิดข้อผิดพลาด');
+      }
 
-      // Clear cart and show success toast
+      const order = await res.json();
+
       clearCart();
       showToast('สั่งซื้อสำเร็จ! กำลังไปยังหน้ารายละเอียดคำสั่งซื้อ', 'success');
 
-      // Redirect to order details
       setTimeout(() => {
-        router.push(`/orders/${orderId}`);
+        router.push(`/orders/${order._id}`);
       }, 500);
     } catch (error) {
       showToast('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง', 'error');
@@ -177,24 +205,22 @@ export default function CheckoutPage() {
                         else if (step === 'review' && currentStep === 'review')
                           setCurrentStep('review');
                       }}
-                      className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base transition-all ${
-                        currentStep === step
-                          ? 'bg-gradient-primary text-white glow-pink'
-                          : currentStep > step
+                      className={`flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base transition-all ${currentStep === step
+                        ? 'bg-gradient-primary text-white glow-pink'
+                        : currentStep > step
                           ? 'bg-[rgb(var(--success))] text-white'
                           : 'bg-[rgb(var(--surface))] text-[rgb(var(--text-muted))]'
-                      }`}
+                        }`}
                     >
                       {currentStep > step ? '✓' : index + 1}
                     </button>
 
                     {index < 2 && (
                       <div
-                        className={`flex-1 h-1 mx-2 rounded-full transition-all ${
-                          currentStep > step
-                            ? 'bg-[rgb(var(--success))]'
-                            : 'bg-[rgb(var(--surface))]'
-                        }`}
+                        className={`flex-1 h-1 mx-2 rounded-full transition-all ${currentStep > step
+                          ? 'bg-[rgb(var(--success))]'
+                          : 'bg-[rgb(var(--surface))]'
+                          }`}
                       />
                     )}
                   </React.Fragment>
@@ -229,11 +255,10 @@ export default function CheckoutPage() {
 
                         <label
                           htmlFor={`address-${address.id}`}
-                          className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            selectedAddressId === address.id
-                              ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
-                              : 'border-white/[0.08] hover:border-white/[0.16]'
-                          }`}
+                          className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedAddressId === address.id
+                            ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
+                            : 'border-white/[0.08] hover:border-white/[0.16]'
+                            }`}
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
@@ -298,11 +323,10 @@ export default function CheckoutPage() {
 
                           <label
                             htmlFor={`shipping-${method.id}`}
-                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                              selectedShippingId === method.id
-                                ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
-                                : 'border-white/[0.08] hover:border-white/[0.16]'
-                            }`}
+                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedShippingId === method.id
+                              ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
+                              : 'border-white/[0.08] hover:border-white/[0.16]'
+                              }`}
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -346,11 +370,10 @@ export default function CheckoutPage() {
 
                           <label
                             htmlFor={`payment-${method.id}`}
-                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                              selectedPaymentId === method.id
-                                ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
-                                : 'border-white/[0.08] hover:border-white/[0.16]'
-                            }`}
+                            className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPaymentId === method.id
+                              ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10'
+                              : 'border-white/[0.08] hover:border-white/[0.16]'
+                              }`}
                           >
                             <div className="flex items-center gap-3">
                               <span className="text-3xl">{method.icon}</span>

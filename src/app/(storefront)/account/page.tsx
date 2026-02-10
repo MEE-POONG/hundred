@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
-import { getCurrentUser } from '@/data/users';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Modal from '@/components/ui/Modal';
@@ -19,31 +19,6 @@ interface Address {
   postalCode: string;
   default: boolean;
 }
-
-const mockAddresses: Address[] = [
-  {
-    id: 'a1',
-    type: 'home',
-    name: 'สมชาย ใจดี',
-    phone: '081-234-5678',
-    address: '123 ซอยสุขุมวิท',
-    district: 'วัฒนา',
-    province: 'กรุงเทพฯ',
-    postalCode: '10110',
-    default: true,
-  },
-  {
-    id: 'a2',
-    type: 'work',
-    name: 'สมชาย ใจดี',
-    phone: '082-456-7890',
-    address: '456 ถนนพระราม 4',
-    district: 'สาทร',
-    province: 'กรุงเทพฯ',
-    postalCode: '10120',
-    default: false,
-  },
-];
 
 interface FormData {
   name: string;
@@ -65,12 +40,76 @@ const initialFormData: FormData = {
   type: 'home',
 };
 
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  image?: string;
+  role: string;
+  createdAt: string;
+}
+
+interface UserStats {
+  orders: number;
+  points: number;
+  reviews: number;
+}
+
 export default function AccountPage() {
-  const user = getCurrentUser();
-  const [addresses, setAddresses] = useState<Address[]>(mockAddresses);
+  const { data: session, status } = useSession();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [stats, setStats] = useState<UserStats>({ orders: 0, points: 0, reviews: 0 });
+  const [loading, setLoading] = useState(true);
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch('/api/user/profile');
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.user);
+          setStats(data.stats);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (status === 'authenticated') {
+      fetchProfile();
+    } else if (status === 'unauthenticated') {
+      setLoading(false);
+    }
+  }, [status]);
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <Card className="p-12 max-w-md mx-auto">
+          <div className="text-4xl mb-4">🔐</div>
+          <h2 className="text-2xl font-bold mb-2">กรุณาเข้าสู่ระบบ</h2>
+          <p className="text-[rgb(var(--text-muted))] mb-6">เข้าสู่ระบบเพื่อดูข้อมูลบัญชีของคุณ</p>
+          <Link href="/auth/login">
+            <Button fullWidth>เข้าสู่ระบบ</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
 
   const handleOpenModal = (address?: Address) => {
     if (address) {
@@ -149,21 +188,19 @@ export default function AccountPage() {
             {/* Profile Card */}
             <Card className="p-6 mb-6">
               <div className="flex flex-col items-center text-center">
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-20 h-20 rounded-full mb-4"
-                />
-                <h2 className="text-2xl font-bold mb-2">{user.name}</h2>
-                <p className="text-[rgb(var(--text-muted))] text-sm mb-4">{user.email}</p>
-                <p className="text-[rgb(var(--text-muted))] text-xs mb-4">📱 {user.phone}</p>
+                <div className="w-20 h-20 rounded-full mb-4 bg-gradient-primary flex items-center justify-center text-3xl text-white font-bold">
+                  {profile?.name?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <h2 className="text-2xl font-bold mb-2">{profile?.name}</h2>
+                <p className="text-[rgb(var(--text-muted))] text-sm mb-4">{profile?.email}</p>
+                {profile?.phone && <p className="text-[rgb(var(--text-muted))] text-xs mb-4">📱 {profile.phone}</p>}
                 <div className="w-full border-t border-white/[0.08] pt-4 mt-4">
                   <p className="text-[rgb(var(--text-muted))] text-xs">
-                    เข้าร่วมเมื่อ {new Date(user.joinedAt).toLocaleDateString('th-TH', {
+                    เข้าร่วมเมื่อ {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('th-TH', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric'
-                    })}
+                    }) : '-'}
                   </p>
                 </div>
               </div>
@@ -180,15 +217,15 @@ export default function AccountPage() {
             {/* Stats */}
             <div className="space-y-3">
               <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-[rgb(var(--primary))]">12</div>
+                <div className="text-3xl font-bold text-[rgb(var(--primary))]">{stats.orders}</div>
                 <p className="text-sm text-[rgb(var(--text-muted))] mt-1">ออเดอร์ทั้งหมด</p>
               </Card>
               <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-[rgb(var(--secondary))]">450</div>
+                <div className="text-3xl font-bold text-[rgb(var(--secondary))]">{stats.points}</div>
                 <p className="text-sm text-[rgb(var(--text-muted))] mt-1">คะแนนตั๋ว</p>
               </Card>
               <Card className="p-4 text-center">
-                <div className="text-3xl font-bold text-[rgb(var(--accent))]">18</div>
+                <div className="text-3xl font-bold text-[rgb(var(--accent))]">{stats.reviews}</div>
                 <p className="text-sm text-[rgb(var(--text-muted))] mt-1">รีวิวที่เขียน</p>
               </Card>
             </div>

@@ -29,7 +29,8 @@ export default function ProductsPage() {
         const response = await fetch('/api/products');
         if (response.ok) {
           const data = await response.json();
-          setProducts(data);
+          const mappedData = data.map((p: any) => ({ ...p, id: p._id }));
+          setProducts(mappedData);
         }
       } catch (error) {
         console.error('Failed to fetch products:', error);

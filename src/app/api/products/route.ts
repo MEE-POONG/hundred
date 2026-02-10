@@ -26,7 +26,27 @@ export async function POST(request: Request) {
   try {
     await connectDB();
     const body = await request.json();
-    const product = await Product.create(body);
+
+    // Auto-generate slug from name
+    let slug = body.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    // Check if slug exists, append random if needed (simple check)
+    const existing = await Product.findOne({ slug });
+    if (existing) {
+      slug = `${slug}-${Date.now()}`;
+    }
+
+    const productData = {
+      ...body,
+      slug,
+      categoryName: body.category === 'weight-loss' ? 'ลดน้ำหนัก' :
+        body.category === 'skin-care' ? 'บำรุงผิว' :
+          body.category === 'fitness' ? 'ฟิตเนส' : 'สุขภาพ', // Simple mapping
+      shortDescription: body.description?.substring(0, 100) || '',
+      rating: 0,
+      reviewCount: 0,
+    };
+
+    const product = await Product.create(productData);
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });

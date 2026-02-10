@@ -1,15 +1,67 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getOrderById } from '@/data/orders';
 import { useParams } from 'next/navigation';
 
-export default function OrderDetailPage() {
+export default function AdminOrderDetailPage() {
   const params = useParams();
-  const order = getOrderById(params.id as string);
-  const [newStatus, setNewStatus] = useState(order?.status || '');
+  const orderId = params.id as string;
+  const [order, setOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [newStatus, setNewStatus] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState('');
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrder(data);
+          setNewStatus(data.status);
+        }
+      } catch (err) {
+        console.error('Failed to fetch order:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (orderId) fetchOrder();
+  }, [orderId]);
+
+  const handleStatusChange = async () => {
+    setIsUpdating(true);
+    setUpdateMessage('');
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrder(updated);
+        setUpdateMessage('อัปเดตสถานะสำเร็จ!');
+        setTimeout(() => setUpdateMessage(''), 3000);
+      } else {
+        setUpdateMessage('เกิดข้อผิดพลาดในการอัปเดต');
+      }
+    } catch (err) {
+      setUpdateMessage('เกิดข้อผิดพลาดในการอัปเดต');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -22,13 +74,6 @@ export default function OrderDetailPage() {
     );
   }
 
-  const handleStatusChange = async () => {
-    setIsUpdating(true);
-    await new Promise(r => setTimeout(r, 1000));
-    alert(`สถานะออเดอร์เปลี่ยนเป็น: ${newStatus}`);
-    setIsUpdating(false);
-  };
-
   const orderTimeline = [
     { status: 'pending_payment', label: 'ออเดอร์สร้าง', date: order.createdAt, completed: true },
     { status: 'paid', label: 'ชำระเงินแล้ว', date: order.paidAt, completed: !!order.paidAt },
@@ -38,41 +83,27 @@ export default function OrderDetailPage() {
   ];
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending_payment':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'paid':
-        return 'bg-blue-500/20 text-blue-400';
-      case 'processing':
-        return 'bg-purple-500/20 text-purple-400';
-      case 'shipped':
-        return 'bg-cyan-500/20 text-cyan-400';
-      case 'delivered':
-        return 'bg-green-500/20 text-green-400';
-      case 'cancelled':
-        return 'bg-red-500/20 text-red-400';
-      default:
-        return 'bg-white/10 text-white';
-    }
+    const map: Record<string, string> = {
+      pending_payment: 'bg-yellow-500/20 text-yellow-400',
+      paid: 'bg-blue-500/20 text-blue-400',
+      processing: 'bg-purple-500/20 text-purple-400',
+      shipped: 'bg-cyan-500/20 text-cyan-400',
+      delivered: 'bg-green-500/20 text-green-400',
+      cancelled: 'bg-red-500/20 text-red-400',
+    };
+    return map[status] || 'bg-white/10 text-white';
   };
 
   const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending_payment':
-        return 'รอชำระเงิน';
-      case 'paid':
-        return 'ชำระแล้ว';
-      case 'processing':
-        return 'กำลังประมวลผล';
-      case 'shipped':
-        return 'จัดส่งแล้ว';
-      case 'delivered':
-        return 'ส่งถึงแล้ว';
-      case 'cancelled':
-        return 'ยกเลิก';
-      default:
-        return status;
-    }
+    const map: Record<string, string> = {
+      pending_payment: 'รอชำระเงิน',
+      paid: 'ชำระแล้ว',
+      processing: 'กำลังประมวลผล',
+      shipped: 'จัดส่งแล้ว',
+      delivered: 'ส่งถึงแล้ว',
+      cancelled: 'ยกเลิก',
+    };
+    return map[status] || status;
   };
 
   return (
@@ -102,20 +133,11 @@ export default function OrderDetailPage() {
           <div className="card-surface p-6">
             <h2 className="text-lg font-bold text-white mb-4">สินค้า</h2>
             <div className="space-y-4">
-              {order.items.map((item, idx) => (
+              {order.items?.map((item: any, idx: number) => (
                 <div key={idx} className="flex gap-4 pb-4 border-b border-white/[0.08] last:border-0 last:pb-0">
-                  <img
-                    src={item.productImage}
-                    alt={item.productName}
-                    className="w-20 h-20 rounded object-cover"
-                  />
+                  <img src={item.productImage} alt={item.productName} className="w-20 h-20 rounded object-cover" />
                   <div className="flex-1">
                     <h3 className="font-medium text-white">{item.productName}</h3>
-                    {item.selectedVariants && (
-                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">
-                        {Object.entries(item.selectedVariants).map(([key, val]) => `${key}: ${val}`).join(', ')}
-                      </p>
-                    )}
                     <p className="text-sm text-[rgb(var(--text-muted))] mt-2">
                       ฿{item.salePrice || item.price} × {item.quantity}
                     </p>
@@ -137,15 +159,8 @@ export default function OrderDetailPage() {
               {orderTimeline.map((step, idx) => (
                 <div key={idx} className="flex gap-4">
                   <div className="flex flex-col items-center">
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 ${
-                        step.completed
-                          ? 'bg-green-500 border-green-500'
-                          : step.status === order.status
-                          ? 'bg-yellow-500 border-yellow-500'
-                          : 'border-white/20'
-                      }`}
-                    ></div>
+                    <div className={`w-4 h-4 rounded-full border-2 ${step.completed ? 'bg-green-500 border-green-500' : step.status === order.status ? 'bg-yellow-500 border-yellow-500' : 'border-white/20'
+                      }`}></div>
                     {idx < orderTimeline.length - 1 && (
                       <div className={`w-0.5 h-12 ${step.completed ? 'bg-green-500' : 'bg-white/10'}`}></div>
                     )}
@@ -167,10 +182,10 @@ export default function OrderDetailPage() {
           <div className="card-surface p-6">
             <h2 className="text-lg font-bold text-white mb-4">ที่อยู่จัดส่ง</h2>
             <div className="space-y-2 text-[rgb(var(--text-muted))]">
-              <p className="font-medium text-white">{order.shippingAddress.name}</p>
-              <p>{order.shippingAddress.address}</p>
-              <p>{order.shippingAddress.district}, {order.shippingAddress.province} {order.shippingAddress.postalCode}</p>
-              <p className="font-medium text-white mt-4">โทรศัพท์: {order.shippingAddress.phone}</p>
+              <p className="font-medium text-white">{order.shippingAddress?.name}</p>
+              <p>{order.shippingAddress?.address}</p>
+              <p>{order.shippingAddress?.district}, {order.shippingAddress?.province} {order.shippingAddress?.postalCode}</p>
+              <p className="font-medium text-white mt-4">โทรศัพท์: {order.shippingAddress?.phone}</p>
             </div>
           </div>
         </div>
@@ -183,11 +198,11 @@ export default function OrderDetailPage() {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between text-[rgb(var(--text-muted))]">
                 <span>ราคาสินค้า</span>
-                <span>฿{order.subtotal.toLocaleString('th-TH')}</span>
+                <span>฿{(order.subtotal || 0).toLocaleString('th-TH')}</span>
               </div>
               <div className="flex justify-between text-[rgb(var(--text-muted))]">
                 <span>ค่าจัดส่ง</span>
-                <span>฿{order.shipping.toLocaleString('th-TH')}</span>
+                <span>฿{(order.shipping || 0).toLocaleString('th-TH')}</span>
               </div>
               {order.discount > 0 && (
                 <div className="flex justify-between text-green-400">
@@ -197,7 +212,7 @@ export default function OrderDetailPage() {
               )}
               <div className="border-t border-white/[0.08] pt-3 flex justify-between font-bold text-white">
                 <span>รวมทั้งสิ้น</span>
-                <span>฿{order.total.toLocaleString('th-TH')}</span>
+                <span>฿{(order.total || 0).toLocaleString('th-TH')}</span>
               </div>
             </div>
           </div>
@@ -208,11 +223,11 @@ export default function OrderDetailPage() {
             <div className="space-y-3 text-sm">
               <div>
                 <p className="text-[rgb(var(--text-muted))] mb-1">วิธี</p>
-                <p className="font-medium text-white">{order.paymentMethod}</p>
+                <p className="font-medium text-white">{order.paymentMethod || '-'}</p>
               </div>
               <div>
                 <p className="text-[rgb(var(--text-muted))] mb-1">วิธีจัดส่ง</p>
-                <p className="font-medium text-white">{order.shippingMethod}</p>
+                <p className="font-medium text-white">{order.shippingMethod || '-'}</p>
               </div>
               {order.trackingNumber && (
                 <div>
@@ -241,11 +256,16 @@ export default function OrderDetailPage() {
               </select>
               <button
                 onClick={handleStatusChange}
-                disabled={isUpdating || !newStatus}
+                disabled={isUpdating || newStatus === order.status}
                 className="w-full px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUpdating ? 'กำลังอัปเดต...' : 'อัปเดตสถานะ'}
               </button>
+              {updateMessage && (
+                <p className={`text-sm text-center ${updateMessage.includes('สำเร็จ') ? 'text-green-400' : 'text-red-400'}`}>
+                  {updateMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>

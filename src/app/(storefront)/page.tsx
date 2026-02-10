@@ -1,15 +1,44 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { categories } from '@/data/categories';
-import { getFeaturedProducts, getOnSaleProducts } from '@/data/products';
 import { mockReviews } from '@/data/reviews';
 import ProductCard from '@/components/storefront/ProductCard';
+import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import { Product } from '@/data/types';
 
 export default function HomePage() {
-  const featuredProducts = getFeaturedProducts();
-  const flashDeals = getOnSaleProducts().slice(0, 4);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [flashDeals, setFlashDeals] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const [featuredRes, allRes] = await Promise.all([
+          fetch('/api/products?featured=true'),
+          fetch('/api/products'),
+        ]);
+        if (featuredRes.ok) {
+          const data = await featuredRes.json();
+          setFeaturedProducts(data);
+        }
+        if (allRes.ok) {
+          const all = await allRes.json();
+          const onSale = all.filter((p: Product) => p.salePrice && p.salePrice < p.price);
+          setFlashDeals(onSale.slice(0, 4));
+        }
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   return (
     <div>
@@ -71,9 +100,13 @@ export default function HomePage() {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {flashDeals.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          ) : (
+            flashDeals.map(product => (
+              <ProductCard key={product.id || (product as any)._id} product={product} />
+            ))
+          )}
         </div>
       </section>
 
@@ -86,9 +119,13 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredProducts.slice(0, 8).map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {loading ? (
+            Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          ) : (
+            featuredProducts.slice(0, 8).map(product => (
+              <ProductCard key={product.id || (product as any)._id} product={product} />
+            ))
+          )}
         </div>
       </section>
 

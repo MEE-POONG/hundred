@@ -13,12 +13,80 @@ export default function NewProductPage() {
     category: 'weight-loss',
     featured: false,
     onSale: false,
+    images: [] as string[],
   });
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const data = new FormData();
+    data.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: data,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setFormData(prev => ({ ...prev, images: [...prev.images, json.url] }));
+      } else {
+        alert('Upload failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Upload error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Product created:', formData);
-    alert('สินค้าใหม่ถูกสร้างสำเร็จ!');
+    setSubmitting(true);
+
+    try {
+      const res = await fetch('/api/products', {
+        // But we don't have POST /api/products yet! We need to make it.
+        // For now let's assume POST /api/products exists or use the one I will create next.
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price),
+          salePrice: formData.salePrice ? Number(formData.salePrice) : undefined,
+          stock: Number(formData.stock),
+          category: formData.category,
+          isFeatured: formData.featured,
+          isOnSale: formData.onSale,
+          images: formData.images,
+        }),
+      });
+
+      if (res.ok) {
+        alert('สินค้าใหม่ถูกสร้างสำเร็จ!');
+        window.location.href = '/admin/products';
+      } else {
+        alert('Failed to create product');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error creating product');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -39,6 +107,37 @@ export default function NewProductPage() {
           <div className="card-surface p-6 md:col-span-2">
             <h2 className="text-lg font-bold text-white mb-4">ข้อมูลพื้นฐาน</h2>
             <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รูปสินค้า</label>
+                <div className="flex flex-wrap gap-4">
+                  {formData.images.map((img, idx) => (
+                    <div key={idx} className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/20">
+                      <img src={img} alt="Product" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-24 h-24 rounded-lg border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 hover:bg-white/5 transition-all">
+                    <span className="text-2xl mb-1">{uploading ? '⏳' : '+'}</span>
+                    <span className="text-xs text-[rgb(var(--text-muted))]">
+                      {uploading ? 'Upload...' : 'เพิ่มรูป'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ชื่อสินค้า *</label>
                 <input
