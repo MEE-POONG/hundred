@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { mockOrders } from '@/data/orders';
 import { Order } from '@/data/types';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -20,14 +19,33 @@ const statusConfig = {
 type OrderStatus = keyof typeof statusConfig;
 
 export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await fetch('/api/orders');
+        if (res.ok) {
+          const data = await res.json();
+          setOrders(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch orders:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
 
   const filteredOrders = useMemo(() => {
     if (selectedStatus === 'all') {
-      return mockOrders;
+      return orders;
     }
-    return mockOrders.filter(order => order.status === selectedStatus);
-  }, [selectedStatus]);
+    return orders.filter(order => order.status === selectedStatus);
+  }, [selectedStatus, orders]);
 
   const statusList: (OrderStatus | 'all')[] = ['all', 'pending_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'];
 
@@ -63,11 +81,10 @@ export default function OrdersPage() {
           <button
             key={status}
             onClick={() => setSelectedStatus(status)}
-            className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-all ${
-              selectedStatus === status
+            className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-all ${selectedStatus === status
                 ? 'bg-gradient-primary text-white glow-pink'
                 : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-            }`}
+              }`}
           >
             {status === 'all' ? 'ทั้งหมด' : statusConfig[status as OrderStatus].label}
           </button>

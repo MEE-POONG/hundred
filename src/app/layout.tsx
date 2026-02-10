@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import {Prompt} from "next/font/google";
+import { Prompt } from "next/font/google";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 const prompt = Prompt({
   subsets: ["latin"],
@@ -21,8 +22,11 @@ export default function RootLayout({
   return (
     <html lang="th" className={prompt.className}>
       <body className="min-h-screen">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
 }
+

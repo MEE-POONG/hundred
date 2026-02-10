@@ -1,28 +1,40 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
 
-    // Demo: Accept admin@supplementshop.com with any password
-    if (email === 'admin@supplementshop.com') {
-      alert('เข้าสู่ระบบสำเร็จ!');
-      // In real app: redirect to /admin/dashboard
-      window.location.href = '/admin/dashboard';
-    } else {
-      alert('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      if (result?.error) {
+        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if user is admin by trying to access admin page
+      router.push('/admin/dashboard');
+      router.refresh();
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด กรุณาลองใหม่');
       setIsLoading(false);
     }
   };
@@ -42,6 +54,13 @@ export default function AdminLoginPage() {
         {/* Form Card */}
         <div className="card-surface p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-400">
+                ⚠️ {error}
+              </div>
+            )}
+
             {/* Email Input */}
             <div>
               <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">อีเมล</label>
@@ -57,12 +76,7 @@ export default function AdminLoginPage() {
 
             {/* Password Input */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-[rgb(var(--text-muted))]">รหัสผ่าน</label>
-                <a href="#" className="text-xs text-[rgb(var(--primary))] hover:text-[rgb(var(--accent))]">
-                  ลืมรหัสผ่าน?
-                </a>
-              </div>
+              <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รหัสผ่าน</label>
               <input
                 type="password"
                 required
@@ -100,13 +114,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Demo Hint */}
-          <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <p className="text-xs text-blue-400 text-center">
-              <strong>Demo:</strong> ใช้อีเมล admin@supplementshop.com กับรหัสผ่านใดๆ
-            </p>
-          </div>
         </div>
 
         {/* Footer */}

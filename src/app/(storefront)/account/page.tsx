@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { getCurrentUser } from '@/data/users';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -328,7 +329,7 @@ export default function AccountPage() {
 
             {/* Logout */}
             <div className="mt-12">
-              <Button fullWidth variant="danger" size="lg">
+              <Button fullWidth variant="danger" size="lg" onClick={() => signOut({ callbackUrl: '/' })}>
                 🚪 ออกจากระบบ
               </Button>
             </div>

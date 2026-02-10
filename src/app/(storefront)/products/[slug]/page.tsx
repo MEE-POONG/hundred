@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getProductBySlug } from '@/data/products';
-import { getReviewsByProductId } from '@/data/reviews';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
+import { Product, Review } from '@/data/types';
+import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -17,13 +17,38 @@ export default function ProductDetailPage() {
   const { addItem } = useCart();
   const { showToast } = useToast();
 
-  const product = getProductBySlug(params.slug as string);
-  const reviews = product ? getReviewsByProductId(product.id) : [];
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'details' | 'ingredients' | 'directions' | 'warnings' | 'reviews'>('details');
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await fetch(`/api/products/${params.slug}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProduct(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (params.slug) fetchProduct();
+  }, [params.slug]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูลสินค้า...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -86,11 +111,10 @@ export default function ProductDetailPage() {
               <button
                 key={index}
                 onClick={() => setSelectedImage(index)}
-                className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                  selectedImage === index
+                className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index
                     ? 'border-[rgb(var(--primary))] glow-pink'
                     : 'border-white/[0.08] hover:border-white/20'
-                }`}
+                  }`}
               >
                 <img src={image} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
               </button>
@@ -155,11 +179,10 @@ export default function ProductDetailPage() {
                   <button
                     key={option}
                     onClick={() => setSelectedVariants({ ...selectedVariants, [variant.name]: option })}
-                    className={`px-4 py-2 rounded-xl border-2 transition-all ${
-                      selectedVariants[variant.name] === option
+                    className={`px-4 py-2 rounded-xl border-2 transition-all ${selectedVariants[variant.name] === option
                         ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]'
                         : 'border-white/[0.08] hover:border-white/20'
-                    }`}
+                      }`}
                   >
                     {option}
                   </button>
@@ -231,11 +254,10 @@ export default function ProductDetailPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`pb-3 px-2 border-b-2 transition-colors ${
-                activeTab === tab.key
+              className={`pb-3 px-2 border-b-2 transition-colors ${activeTab === tab.key
                   ? 'border-[rgb(var(--primary))] text-[rgb(var(--primary))]'
                   : 'border-transparent text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]'
-              }`}
+                }`}
             >
               {tab.label}
             </button>

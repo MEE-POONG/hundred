@@ -1,36 +1,55 @@
 'use client';
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { products } from '@/data/products';
 import { categories } from '@/data/categories';
 import ProductCard from '@/components/storefront/ProductCard';
 import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
+import { Product } from '@/data/types';
 
 export default function ProductsPage() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
 
+  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || '');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
   const [minRating, setMinRating] = useState(0);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>('featured');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filterOpen, setFilterOpen] = useState(false);
 
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const data = await response.json();
+          setProducts(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
-        product.description.toLowerCase().includes(search.toLowerCase());
+    let filtered = [...products].filter(product => {
+      const nameMatch = product.name?.toLowerCase().includes(search.toLowerCase());
+      const descMatch = product.description?.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = nameMatch || descMatch;
       const matchesCategory = !selectedCategory || product.category === selectedCategory;
       const price = product.salePrice || product.price;
       const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
       const matchesRating = product.rating >= minRating;
-      const matchesStock = !inStockOnly || product.isInStock;
+      const matchesStock = !inStockOnly || product.stock > 0;
 
       return matchesSearch && matchesCategory && matchesPrice && matchesRating && matchesStock;
     });

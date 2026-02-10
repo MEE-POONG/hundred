@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
@@ -14,6 +16,7 @@ interface FormData {
 }
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -25,6 +28,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [serverError, setServerError] = useState('');
 
   const validateForm = () => {
     const newErrors: Record<string, boolean> = {};
@@ -59,7 +63,6 @@ export default function RegisterPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
-    // Clear error for this field when user starts typing
     if (errors[name as keyof FormData]) {
       setErrors(prev => ({
         ...prev,
@@ -70,17 +73,50 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError('');
 
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Register
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setServerError(data.error || 'เกิดข้อผิดพลาด');
+        setIsLoading(false);
+        return;
+      }
+
+      // Auto-login after registration
+      const loginResult = await signIn('credentials', {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (loginResult?.ok) {
+        router.push('/');
+        router.refresh();
+      } else {
+        router.push('/auth/login');
+      }
+    } catch (err) {
+      setServerError('เกิดข้อผิดพลาด กรุณาลองใหม่');
       setIsLoading(false);
-      alert('สร้างบัญชีสำเร็จ!');
-    }, 1000);
+    }
   };
 
   return (
@@ -104,11 +140,10 @@ export default function RegisterPage() {
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="สมชาย ใจดี"
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors ${
-                  errors.name
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors ${errors.name
                     ? 'border-[rgb(var(--error))] focus:border-[rgb(var(--error))]'
                     : 'border-white/[0.08] focus:border-[rgb(var(--primary))]'
-                }`}
+                  }`}
                 required
               />
               {errors.name && (
@@ -125,11 +160,10 @@ export default function RegisterPage() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="your@email.com"
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors ${
-                  errors.email
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors ${errors.email
                     ? 'border-[rgb(var(--error))] focus:border-[rgb(var(--error))]'
                     : 'border-white/[0.08] focus:border-[rgb(var(--primary))]'
-                }`}
+                  }`}
                 required
               />
               {errors.email && (
@@ -147,11 +181,10 @@ export default function RegisterPage() {
                   value={formData.password}
                   onChange={handleInputChange}
                   placeholder="ต้องมีอย่างน้อย 6 ตัวอักษร"
-                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors pr-10 ${
-                    errors.password
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors pr-10 ${errors.password
                       ? 'border-[rgb(var(--error))] focus:border-[rgb(var(--error))]'
                       : 'border-white/[0.08] focus:border-[rgb(var(--primary))]'
-                  }`}
+                    }`}
                   required
                 />
                 <button
@@ -177,11 +210,10 @@ export default function RegisterPage() {
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   placeholder="••••••••"
-                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors pr-10 ${
-                    errors.confirmPassword
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl focus:outline-none transition-colors pr-10 ${errors.confirmPassword
                       ? 'border-[rgb(var(--error))] focus:border-[rgb(var(--error))]'
                       : 'border-white/[0.08] focus:border-[rgb(var(--primary))]'
-                  }`}
+                    }`}
                   required
                 />
                 <button

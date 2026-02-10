@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useSession, signOut } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
 
 export default function Header() {
   const { totalItems } = useCart();
+  const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -51,14 +53,34 @@ export default function Header() {
               )}
             </Link>
 
-            <Link
-              href="/account"
-              className="hidden md:block p-2 hover:bg-white/5 rounded-xl transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </Link>
+            {/* Auth Section - Desktop */}
+            {session ? (
+              <div className="hidden md:flex items-center gap-2">
+                <Link
+                  href="/account"
+                  className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 rounded-xl transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-primary flex items-center justify-center text-white text-xs font-bold">
+                    {session.user?.name?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <span className="text-sm max-w-[100px] truncate">{session.user?.name}</span>
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="p-2 text-[rgb(var(--text-muted))] hover:text-[rgb(var(--error))] hover:bg-white/5 rounded-xl transition-colors text-sm"
+                  title="ออกจากระบบ"
+                >
+                  🚪
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="hidden md:flex items-center gap-1 px-4 py-2 bg-gradient-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                เข้าสู่ระบบ
+              </Link>
+            )}
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -94,6 +116,18 @@ export default function Header() {
               <Link href="/help" className="text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]">
                 ช่วยเหลือ
               </Link>
+              {session ? (
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="text-left text-[rgb(var(--error))] hover:opacity-80"
+                >
+                  🚪 ออกจากระบบ ({session.user?.name})
+                </button>
+              ) : (
+                <Link href="/auth/login" className="text-[rgb(var(--primary))] font-semibold">
+                  🔓 เข้าสู่ระบบ
+                </Link>
+              )}
             </nav>
           </div>
         )}
@@ -101,3 +135,4 @@ export default function Header() {
     </header>
   );
 }
+

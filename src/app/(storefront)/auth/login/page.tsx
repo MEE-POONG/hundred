@@ -1,24 +1,43 @@
 'use client';
 
 import React, { useState } from 'react';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาด กรุณาลองใหม่');
+    } finally {
       setIsLoading(false);
-      alert('เข้าสู่ระบบสำเร็จ!');
-    }, 1000);
+    }
   };
 
   return (
@@ -33,6 +52,13 @@ export default function LoginPage() {
         {/* Login Form Card */}
         <Card className="p-8 mb-6" elevated>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-[rgb(var(--error))]/10 border border-[rgb(var(--error))]/30 rounded-xl p-3 text-sm text-[rgb(var(--error))]">
+                ⚠️ {error}
+              </div>
+            )}
+
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium mb-2">📧 อีเมล</label>
@@ -68,17 +94,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded" />
-                <span>จำรหัสผ่านไว้</span>
-              </label>
-              <Link href="/auth/forgot-password" className="text-[rgb(var(--primary))] hover:underline">
-                ลืมรหัสผ่าน?
-              </Link>
-            </div>
-
             {/* Submit Button */}
             <Button
               type="submit"
@@ -89,41 +104,6 @@ export default function LoginPage() {
               {isLoading ? '🔄 กำลังเข้าสู่ระบบ...' : '✓ เข้าสู่ระบบ'}
             </Button>
           </form>
-
-          {/* Divider */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="flex-1 h-px bg-white/[0.08]" />
-            <span className="text-xs text-[rgb(var(--text-muted))]">หรือ</span>
-            <div className="flex-1 h-px bg-white/[0.08]" />
-          </div>
-
-          {/* Social Buttons */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              disabled
-              className="w-full px-4 py-3 bg-white/5 border border-white/[0.08] rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              title="ยังไม่พร้อมใช้งาน"
-            >
-              <span>🔵</span> เข้าสู่ระบบด้วย Facebook
-            </button>
-            <button
-              type="button"
-              disabled
-              className="w-full px-4 py-3 bg-white/5 border border-white/[0.08] rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              title="ยังไม่พร้อมใช้งาน"
-            >
-              <span>🔴</span> เข้าสู่ระบบด้วย Google
-            </button>
-            <button
-              type="button"
-              disabled
-              className="w-full px-4 py-3 bg-white/5 border border-white/[0.08] rounded-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              title="ยังไม่พร้อมใช้งาน"
-            >
-              <span>🍎</span> เข้าสู่ระบบด้วย Apple
-            </button>
-          </div>
         </Card>
 
         {/* Sign Up Link */}
