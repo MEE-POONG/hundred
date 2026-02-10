@@ -11,7 +11,14 @@ export async function GET(
     const { slug } = await params;
     const product = await Product.findOne({ slug });
     if (!product) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-    return NextResponse.json(product);
+
+    const result = {
+      ...product.toObject({ virtuals: true }),
+      isInStock: product.stock > 0 && (product.isAvailable !== false),
+      id: product._id
+    };
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
   }

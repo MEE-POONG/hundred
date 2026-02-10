@@ -10,13 +10,51 @@ import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, subtotal } = useCart();
+  const { items, removeItem, updateQuantity } = useCart(); // Remove subtotal from here, calculate manually
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Calculate shipping (free for orders above 500)
-  const shipping = subtotal >= 500 ? 0 : 50;
-  const total = subtotal + shipping;
+  // State for selected items (store product IDs)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Initialize selected items when cart items load (optional: auto-select all)
+  React.useEffect(() => {
+    if (items.length > 0 && selectedItems.size === 0) {
+      // Auto select all initially ? Or specifically user must choose. 
+      // Let's auto select all for better UX
+      setSelectedItems(new Set(items.map(i => i.productId)));
+    }
+  }, [items.length]); // Only run when total items count changes (e.g. initial load)
+
+  // Handlers
+  const toggleSelectAll = () => {
+    if (selectedItems.size === items.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(items.map(i => i.productId)));
+    }
+  };
+
+  const toggleItem = (productId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  // Calculate Derived Values
+  const selectedCartItems = items.filter(item => selectedItems.has(item.productId));
+
+  const selectedSubtotal = selectedCartItems.reduce((sum, item) => {
+    const price = item.salePrice || item.price;
+    return sum + price * item.quantity;
+  }, 0);
+
+  const shipping = selectedSubtotal >= 500 ? 0 : 50;
+  const total = selectedSubtotal + shipping;
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     if (quantity > 0) {
@@ -25,11 +63,16 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
+    if (selectedItems.size === 0) {
+      alert('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ');
+      return;
+    }
     setIsLoading(true);
     try {
-      // Small delay to simulate processing
       await new Promise(resolve => setTimeout(resolve, 300));
-      router.push('/checkout');
+      // Pass selected IDs to checkout
+      const selectedIds = Array.from(selectedItems).join(',');
+      router.push(`/checkout?selected=${selectedIds}`);
     } finally {
       setIsLoading(false);
     }
@@ -59,9 +102,31 @@ export default function CartPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+
+            {/* Select All Bar */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={selectedItems.size > 0 && selectedItems.size === items.length}
+                onChange={toggleSelectAll}
+                className="w-5 h-5 rounded accent-[rgb(var(--primary))] cursor-pointer"
+              />
+              <span className="font-semibold text-lg">เลือกทั้งหมด ({items.length})</span>
+            </div>
+
             {items.map((item) => (
               <Card key={item.productId} hover={false} elevated={true}>
-                <div className="flex gap-4 p-6">
+                <div className="flex gap-4 p-6 items-start">
+                  {/* Valid Checkbox */}
+                  <div className="pt-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.has(item.productId)}
+                      onChange={() => toggleItem(item.productId)}
+                      className="w-5 h-5 rounded accent-[rgb(var(--primary))] cursor-pointer"
+                    />
+                  </div>
+
                   {/* Product Image */}
                   <div className="w-24 h-24 flex-shrink-0">
                     <img
@@ -152,8 +217,8 @@ export default function CartPage() {
                 {/* Summary Items */}
                 <div className="space-y-3 py-4 border-y border-white/[0.08]">
                   <div className="flex justify-between items-center">
-                    <span className="text-[rgb(var(--text-muted))]">สินค้า ({items.length} รายการ)</span>
-                    <span className="font-semibold">{subtotal.toFixed(2)} บาท</span>
+                    <span className="text-[rgb(var(--text-muted))]">ที่เลือก ({selectedItems.size} รายการ)</span>
+                    <span className="font-semibold">{selectedSubtotal.toFixed(2)} บาท</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[rgb(var(--text-muted))]">ค่าจัดส่ง</span>
@@ -168,9 +233,15 @@ export default function CartPage() {
                 </div>
 
                 {/* Free Shipping Info */}
-                {shipping > 0 && (
+                {shipping > 0 && selectedSubtotal > 0 && (
                   <div className="bg-[rgb(var(--success))]/10 border border-[rgb(var(--success))]/30 rounded-xl p-3 text-sm text-[rgb(var(--success))]">
-                    ซื้อเพิ่มอีก {(500 - subtotal).toFixed(2)} บาท เพื่อฟรีค่าจัดส่ง
+                    ซื้อเพิ่ม (ในส่วนที่เลือก) อีก {(500 - selectedSubtotal).toFixed(2)} บาท เพื่อฟรีค่าจัดส่ง
+                  </div>
+                )}
+
+                {selectedItems.size === 0 && (
+                  <div className="text-[rgb(var(--error))] text-sm text-center">
+                    กรุณาเลือกสินค้าที่ต้องการชำระเงิน
                   </div>
                 )}
 
@@ -185,10 +256,10 @@ export default function CartPage() {
                   fullWidth
                   size="lg"
                   onClick={handleCheckout}
-                  disabled={isLoading}
+                  disabled={isLoading || selectedItems.size === 0}
                   className="mt-6"
                 >
-                  {isLoading ? 'กำลังโหลด...' : 'ไปชำระเงิน'}
+                  {isLoading ? 'กำลังโหลด...' : `ชำระเงิน (${selectedItems.size})`}
                 </Button>
 
                 {/* Continue Shopping */}

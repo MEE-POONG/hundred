@@ -44,6 +44,7 @@ const ProductSchema = new Schema({
   fda: String,
   variants: [ProductVariantSchema],
   redeemable: RedeemRuleSchema,
+  isAvailable: { type: Boolean, default: true },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -52,7 +53,7 @@ const ProductSchema = new Schema({
 
 // Virtual for isInStock
 ProductSchema.virtual('isInStock').get(function () {
-  return this.stock > 0;
+  return this.stock > 0 && this.isAvailable !== false;
 });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/Toast';
@@ -12,6 +12,18 @@ import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
+
+// Define Address Interface locally (since mock data might not export it or it's simple)
+interface Address {
+  id: string;
+  name: string;
+  address: string;
+  district: string;
+  province: string;
+  postalCode: string;
+  phone: string;
+  isDefault?: boolean;
+}
 
 interface ShippingMethod {
   id: string;
@@ -81,36 +93,49 @@ const PAYMENT_METHODS: PaymentMethod[] = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotal, clearCart } = useCart();
+  const searchParams = useSearchParams();
+  const { items, removeItem } = useCart();
   const { showToast } = useToast();
 
+  const selectedIdsString = searchParams.get('selected');
+  const selectedIds = selectedIdsString ? new Set(selectedIdsString.split(',')) : null;
+
+  // Filter items: If selectedIds exists, use it. Otherwise use all items (fallback)
+  const checkoutItems = selectedIds
+    ? items.filter(item => selectedIds.has(item.productId))
+    : items;
+
+  // Calculate totals manually for checkout items
+  const checkoutSubtotal = checkoutItems.reduce((sum, item) => {
+    return sum + (item.salePrice || item.price) * item.quantity;
+  }, 0);
+
+  // States
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
-  const [selectedAddressId, setSelectedAddressId] = useState<string>(mockAddresses[0].id);
+
+  // Use State for addresses so we can add new ones
+  const [addresses, setAddresses] = useState<Address[]>(mockAddresses);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(mockAddresses[0]?.id || '');
+
   const [selectedShippingId, setSelectedShippingId] = useState<string>('standard');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('credit-card');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Modal State for adding address
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState<Partial<Address>>({});
+
   // Calculate totals
   const selectedShipping = SHIPPING_METHODS.find(m => m.id === selectedShippingId);
   const shippingPrice = selectedShipping?.price || 50;
-  const total = subtotal + shippingPrice;
-  const selectedAddress = mockAddresses.find(addr => addr.id === selectedAddressId);
+  // Free shipping logic (example: over 500)
+  const finalShippingPrice = checkoutSubtotal >= 500 ? 0 : shippingPrice;
+  const total = checkoutSubtotal + finalShippingPrice;
+
+  const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
   const selectedPayment = PAYMENT_METHODS.find(m => m.id === selectedPaymentId);
 
-  if (items.length === 0) {
-    return (
-      <div className="container mx-auto px-4 py-16">
-        <EmptyState
-          icon="🛒"
-          title="ตะกร้าว่างเปล่า"
-          description="ไม่มีสินค้าในตะกร้า กรุณาเพิ่มสินค้าก่อนชำระเงิน"
-          actionLabel="กลับไปซื้อสินค้า"
-          onAction={() => router.push('/products')}
-        />
-      </div>
-    );
-  }
-
+  // Handlers
   const handleNextStep = () => {
     if (currentStep === 'address') {
       if (!selectedAddressId) {
@@ -131,6 +156,32 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleAddAddressSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAddress.name || !newAddress.address || !newAddress.province || !newAddress.postalCode || !newAddress.phone) {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+      return;
+    }
+
+    const newId = `addr_${Date.now()}`;
+    const addressToSave: Address = {
+      id: newId,
+      name: newAddress.name,
+      address: newAddress.address,
+      district: newAddress.district || '',
+      province: newAddress.province,
+      postalCode: newAddress.postalCode,
+      phone: newAddress.phone,
+      isDefault: false
+    };
+
+    setAddresses([...addresses, addressToSave]);
+    setSelectedAddressId(newId); // Auto select new address
+    setIsAddingAddress(false);
+    setNewAddress({}); // Reset form
+    showToast('เพิ่มที่อยู่สำเร็จ', 'success');
+  };
+
   const handleConfirmOrder = async () => {
     setIsProcessing(true);
     try {
@@ -138,7 +189,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map(item => ({
+          items: checkoutItems.map(item => ({
             productId: item.productId,
             productName: item.productName,
             productImage: item.productImage,
@@ -147,8 +198,8 @@ export default function CheckoutPage() {
             quantity: item.quantity,
             selectedVariants: item.selectedVariants,
           })),
-          subtotal,
-          shipping: shippingPrice,
+          subtotal: checkoutSubtotal,
+          shipping: finalShippingPrice,
           discount: 0,
           total,
           status: 'pending_payment',
@@ -170,7 +221,11 @@ export default function CheckoutPage() {
 
       const order = await res.json();
 
-      clearCart();
+      // Remove ONLY purchased items from cart
+      checkoutItems.forEach(item => {
+        removeItem(item.productId);
+      });
+
       showToast('สั่งซื้อสำเร็จ! กำลังไปยังหน้ารายละเอียดคำสั่งซื้อ', 'success');
 
       setTimeout(() => {
@@ -182,11 +237,25 @@ export default function CheckoutPage() {
     }
   };
 
+  if (checkoutItems.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <EmptyState
+          icon="🛒"
+          title="ไม่มีสินค้าที่เลือก"
+          description="กรุณาเลือกสินค้าจากตะกร้าก่อนชำระเงิน"
+          actionLabel="กลับไปตะกร้า"
+          onAction={() => router.push('/cart')}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-dark py-8 md:py-16">
+    <div className="min-h-screen bg-gradient-dark py-8 md:py-16 relative">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl md:text-4xl font-bold mb-8 text-gradient">
-          ชำระเงิน
+          ชำระเงิน ({checkoutItems.length} รายการ)
         </h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -238,10 +307,12 @@ export default function CheckoutPage() {
             {currentStep === 'address' && (
               <Card elevated={true}>
                 <div className="p-6">
-                  <h2 className="text-2xl font-bold mb-6">เลือกที่อยู่จัดส่ง</h2>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold">เลือกที่อยู่จัดส่ง</h2>
+                  </div>
 
                   <div className="space-y-4">
-                    {mockAddresses.map((address) => (
+                    {addresses.map((address) => (
                       <div key={address.id} className="relative">
                         <input
                           type="radio"
@@ -283,6 +354,15 @@ export default function CheckoutPage() {
                         </label>
                       </div>
                     ))}
+
+                    {/* Add Address Button */}
+                    <button
+                      onClick={() => setIsAddingAddress(true)}
+                      className="w-full py-4 rounded-xl border-2 border-dashed border-white/20 hover:border-[rgb(var(--primary))] hover:text-[rgb(var(--primary))] hover:bg-[rgb(var(--primary))]/5 transition-all flex items-center justify-center gap-2 text-[rgb(var(--text-muted))]"
+                    >
+                      <span className="text-2xl">+</span>
+                      <span className="font-semibold">เพิ่มที่อยู่ใหม่</span>
+                    </button>
                   </div>
 
                   <div className="mt-8 pt-6 border-t border-white/[0.08] flex gap-3 justify-end">
@@ -307,7 +387,6 @@ export default function CheckoutPage() {
                   {/* Shipping Method */}
                   <div>
                     <h2 className="text-2xl font-bold mb-6">วิธีการจัดส่ง</h2>
-
                     <div className="space-y-3">
                       {SHIPPING_METHODS.map((method) => (
                         <div key={method.id} className="relative">
@@ -320,7 +399,6 @@ export default function CheckoutPage() {
                             onChange={(e) => setSelectedShippingId(e.target.value)}
                             className="sr-only"
                           />
-
                           <label
                             htmlFor={`shipping-${method.id}`}
                             className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedShippingId === method.id
@@ -354,7 +432,6 @@ export default function CheckoutPage() {
                   {/* Payment Method */}
                   <div>
                     <h2 className="text-2xl font-bold mb-6">วิธีชำระเงิน</h2>
-
                     <div className="space-y-3">
                       {PAYMENT_METHODS.map((method) => (
                         <div key={method.id} className="relative">
@@ -367,7 +444,6 @@ export default function CheckoutPage() {
                             onChange={(e) => setSelectedPaymentId(e.target.value)}
                             className="sr-only"
                           />
-
                           <label
                             htmlFor={`payment-${method.id}`}
                             className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedPaymentId === method.id
@@ -433,7 +509,8 @@ export default function CheckoutPage() {
                   </div>
                 </Card>
 
-                {/* Shipping Method */}
+                {/* Shipping and Payment Info Cards... */}
+                {/* Same as before */}
                 <Card elevated={true}>
                   <div className="p-6">
                     <div className="flex items-center gap-3 mb-4">
@@ -451,7 +528,6 @@ export default function CheckoutPage() {
                   </div>
                 </Card>
 
-                {/* Payment Method */}
                 <Card elevated={true}>
                   <div className="p-6">
                     <div className="flex items-center gap-3">
@@ -490,10 +566,9 @@ export default function CheckoutPage() {
             <Card elevated={true} className="sticky top-20">
               <div className="p-6 space-y-4">
                 <h2 className="text-xl font-bold">สรุปคำสั่งซื้อ</h2>
-
-                {/* Items */}
+                {/* Same as before */}
                 <div className="max-h-64 overflow-y-auto space-y-3 py-4 border-y border-white/[0.08]">
-                  {items.map((item) => (
+                  {checkoutItems.map((item) => (
                     <div key={item.productId} className="flex justify-between text-sm">
                       <div>
                         <p className="font-medium">{item.productName}</p>
@@ -508,20 +583,17 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                {/* Totals */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-[rgb(var(--text-muted))]">รวมสินค้า</span>
-                    <span className="font-semibold">{subtotal.toFixed(2)} บาท</span>
+                    <span className="font-semibold">{checkoutSubtotal.toFixed(2)} บาท</span>
                   </div>
-
                   <div className="flex justify-between">
                     <span className="text-[rgb(var(--text-muted))]">ค่าจัดส่ง</span>
-                    <span className="font-semibold">{shippingPrice} บาท</span>
+                    <span className="font-semibold">{finalShippingPrice} บาท</span>
                   </div>
                 </div>
 
-                {/* Total */}
                 <div className="pt-3 border-t border-white/[0.08]">
                   <div className="flex justify-between items-center">
                     <span className="font-bold">รวมทั้งสิ้น</span>
@@ -531,10 +603,9 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Status Info */}
                 {currentStep !== 'review' && (
                   <div className="bg-[rgb(var(--primary))]/10 border border-[rgb(var(--primary))]/30 rounded-xl p-3 text-xs text-[rgb(var(--primary))]">
-                    ✓ ตัวเลขนี้จะอัปเดตตามการเลือกของคุณ
+                    ✓ จะชำระเงินเฉพาะรายการที่เลือก ({checkoutItems.length} รายการ)
                   </div>
                 )}
               </div>
@@ -542,6 +613,87 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Add Address Modal */}
+      {isAddingAddress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 animate-in fade-in zoom-in duration-200">
+            <h2 className="text-2xl font-bold mb-6 text-gradient">เพิ่มที่อยู่จัดส่งใหม่</h2>
+
+            <form onSubmit={handleAddAddressSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ชื่อ-นามสกุล</label>
+                <input
+                  type="text"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                  placeholder="เช่น สมชาย ใจดี"
+                  value={newAddress.name || ''}
+                  onChange={e => setNewAddress({ ...newAddress, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">เบอร์โทรศัพท์</label>
+                <input
+                  type="tel"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                  placeholder="08X-XXX-XXXX"
+                  value={newAddress.phone || ''}
+                  onChange={e => setNewAddress({ ...newAddress, phone: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ที่อยู่ (บ้านเลขที่, ซอย, ถนน)</label>
+                <textarea
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                  rows={2}
+                  placeholder="บ้านเลขที่..."
+                  value={newAddress.address || ''}
+                  onChange={e => setNewAddress({ ...newAddress, address: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">จังหวัด</label>
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                    placeholder="กรุงเทพฯ"
+                    value={newAddress.province || ''}
+                    onChange={e => setNewAddress({ ...newAddress, province: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">รหัสไปรษณีย์</label>
+                  <input
+                    type="text"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                    placeholder="10XXX"
+                    value={newAddress.postalCode || ''}
+                    onChange={e => setNewAddress({ ...newAddress, postalCode: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  fullWidth
+                  onClick={() => setIsAddingAddress(false)}
+                >
+                  ยกเลิก
+                </Button>
+                <Button type="submit" fullWidth>
+                  บันทึกที่อยู่
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,7 +16,14 @@ export async function GET(request: Request) {
     if (search) query.name = { $regex: search, $options: 'i' };
 
     const products = await Product.find(query).sort({ createdAt: -1 });
-    return NextResponse.json(products);
+
+    const result = products.map(p => ({
+      ...p.toObject({ virtuals: true }),
+      isInStock: p.stock > 0 && (p.isAvailable !== false),
+      id: p._id
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }

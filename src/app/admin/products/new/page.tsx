@@ -7,6 +7,7 @@ export default function NewProductPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    shortDescription: '',
     price: '',
     salePrice: '',
     stock: '',
@@ -14,10 +15,15 @@ export default function NewProductPage() {
     featured: false,
     onSale: false,
     images: [] as string[],
+    ingredients: '',
+    flavors: '',
+    sizes: '',
+    isAvailable: true,
   });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Image Upload Handlers
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,14 +63,35 @@ export default function NewProductPage() {
     setSubmitting(true);
 
     try {
+      // Process Variants
+      const variants = [];
+      if (formData.flavors.trim()) {
+        variants.push({
+          id: `var_flavor_${Date.now()}`,
+          name: 'รสชาติ',
+          type: 'flavor',
+          options: formData.flavors.split(',').map(s => s.trim()).filter(Boolean)
+        });
+      }
+      if (formData.sizes.trim()) {
+        variants.push({
+          id: `var_size_${Date.now()}`,
+          name: 'ขนาด',
+          type: 'size',
+          options: formData.sizes.split(',').map(s => s.trim()).filter(Boolean)
+        });
+      }
+
+      // Process Ingredients (split by newline)
+      const ingredientsList = formData.ingredients.split('\n').map(s => s.trim()).filter(Boolean);
+
       const res = await fetch('/api/products', {
-        // But we don't have POST /api/products yet! We need to make it.
-        // For now let's assume POST /api/products exists or use the one I will create next.
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: formData.name,
           description: formData.description,
+          shortDescription: formData.shortDescription,
           price: Number(formData.price),
           salePrice: formData.salePrice ? Number(formData.salePrice) : undefined,
           stock: Number(formData.stock),
@@ -72,6 +99,9 @@ export default function NewProductPage() {
           isFeatured: formData.featured,
           isOnSale: formData.onSale,
           images: formData.images,
+          ingredients: ingredientsList,
+          variants: variants,
+          isAvailable: formData.isAvailable,
         }),
       });
 
@@ -91,14 +121,7 @@ export default function NewProductPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <Link href="/admin/products" className="text-[rgb(var(--text-muted))] hover:text-white mb-4 inline-block">
-          ← ย้อนกลับ
-        </Link>
-        <h1 className="text-3xl font-bold text-white">สินค้าใหม่</h1>
-        <p className="text-[rgb(var(--text-muted))] mt-2">เพิ่มสินค้าใหม่ลงในระบบ</p>
-      </div>
+      {/* ... Header ... */}
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -107,6 +130,7 @@ export default function NewProductPage() {
           <div className="card-surface p-6 md:col-span-2">
             <h2 className="text-lg font-bold text-white mb-4">ข้อมูลพื้นฐาน</h2>
             <div className="space-y-4">
+              {/* Image Upload Block (Previous Code) */}
               <div>
                 <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รูปสินค้า</label>
                 <div className="flex flex-wrap gap-4">
@@ -150,11 +174,58 @@ export default function NewProductPage() {
               </div>
 
               <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">คำอธิบาย</label>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">คำโปรยสั้นๆ (Short Description)</label>
+                <input
+                  type="text"
+                  value={formData.shortDescription}
+                  onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
+                  placeholder="เช่น โปรตีนสูง สร้างกล้ามเนื้อ..."
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รายละเอียดสินค้าครบถ้วน</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-32"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed Info (New Section) */}
+          <div className="card-surface p-6 md:col-span-2">
+            <h2 className="text-lg font-bold text-white mb-4">ข้อมูลเพิ่มเติม</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รสชาติ (คั่นด้วยคอมม่า ,)</label>
+                <input
+                  type="text"
+                  value={formData.flavors}
+                  onChange={(e) => setFormData({ ...formData, flavors: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
+                  placeholder="เช่น ช็อกโกแลต, วนิลา, กล้วยหอม"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ขนาด (คั่นด้วยคอมม่า ,)</label>
+                <input
+                  type="text"
+                  value={formData.sizes}
+                  onChange={(e) => setFormData({ ...formData, sizes: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
+                  placeholder="เช่น 1kg, 2kg, 5lb"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ส่วนประกอบ (บรรทัดละ 1 รายการ)</label>
+                <textarea
+                  value={formData.ingredients}
+                  onChange={(e) => setFormData({ ...formData, ingredients: e.target.value })}
                   className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-24"
+                  placeholder="Whey Protein Isolate\nBCAA\n..."
                 />
               </div>
             </div>
@@ -192,6 +263,7 @@ export default function NewProductPage() {
           {/* Inventory */}
           <div className="card-surface p-6">
             <h2 className="text-lg font-bold text-white mb-4">สต็อก</h2>
+            {/* ... (Copy existing Inventory Code) ... */}
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">จำนวนสินค้า *</label>
@@ -244,8 +316,19 @@ export default function NewProductPage() {
                 />
                 <span className="text-white">เป็นสินค้าขายของ</span>
               </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isAvailable}
+                  onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                  className="w-4 h-4 rounded accent-green-500"
+                />
+                <span className="text-white">วางจำหน่าย (In Stock)</span>
+              </label>
             </div>
           </div>
+
         </div>
 
         {/* Actions */}

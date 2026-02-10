@@ -77,7 +77,7 @@ export default function ProductDetailPage() {
       }
     }
 
-    addItem(product.id, quantity, selectedVariants);
+    addItem(product, quantity, selectedVariants);
     showToast(`เพิ่ม ${product.name} ลงตะกร้าแล้ว`, 'success');
   };
 
@@ -112,8 +112,8 @@ export default function ProductDetailPage() {
                 key={index}
                 onClick={() => setSelectedImage(index)}
                 className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index
-                    ? 'border-[rgb(var(--primary))] glow-pink'
-                    : 'border-white/[0.08] hover:border-white/20'
+                  ? 'border-[rgb(var(--primary))] glow-pink'
+                  : 'border-white/[0.08] hover:border-white/20'
                   }`}
               >
                 <img src={image} alt={`${product.name} ${index + 1}`} className="w-full h-full object-cover" />
@@ -180,8 +180,8 @@ export default function ProductDetailPage() {
                     key={option}
                     onClick={() => setSelectedVariants({ ...selectedVariants, [variant.name]: option })}
                     className={`px-4 py-2 rounded-xl border-2 transition-all ${selectedVariants[variant.name] === option
-                        ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]'
-                        : 'border-white/[0.08] hover:border-white/20'
+                      ? 'border-[rgb(var(--primary))] bg-[rgb(var(--primary))]/10 text-[rgb(var(--primary))]'
+                      : 'border-white/[0.08] hover:border-white/20'
                       }`}
                   >
                     {option}
@@ -255,8 +255,8 @@ export default function ProductDetailPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
               className={`pb-3 px-2 border-b-2 transition-colors ${activeTab === tab.key
-                  ? 'border-[rgb(var(--primary))] text-[rgb(var(--primary))]'
-                  : 'border-transparent text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]'
+                ? 'border-[rgb(var(--primary))] text-[rgb(var(--primary))]'
+                : 'border-transparent text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]'
                 }`}
             >
               {tab.label}

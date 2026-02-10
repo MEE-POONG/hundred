@@ -6,7 +6,7 @@ import { getProductById } from '@/data/products';
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (productId: string, quantity?: number, variants?: Record<string, string>) => void;
+  addItem: (product: any, quantity?: number, variants?: Record<string, string>) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -19,15 +19,15 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = useCallback((productId: string, quantity = 1, variants?: Record<string, string>) => {
-    const product = getProductById(productId);
+  const addItem = useCallback((product: any, quantity = 1, variants?: Record<string, string>) => {
     if (!product) return;
 
     setItems(prev => {
-      const existing = prev.find(item => item.productId === productId);
+      const existing = prev.find(item => item.productId === product.id || item.productId === product._id);
+
       if (existing) {
         return prev.map(item =>
-          item.productId === productId
+          item.productId === (product.id || product._id)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -36,9 +36,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [
         ...prev,
         {
-          productId,
+          productId: product.id || product._id,
           productName: product.name,
-          productImage: product.images[0],
+          productImage: product.images?.[0] || '',
           price: product.price,
           salePrice: product.salePrice,
           quantity,

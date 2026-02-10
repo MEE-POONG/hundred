@@ -6,6 +6,8 @@ import Link from 'next/link';
 interface ProductItem {
   _id: string;
   name: string;
+  description?: string;
+  shortDescription?: string;
   price: number;
   salePrice?: number;
   stock: number;
@@ -14,6 +16,9 @@ interface ProductItem {
   images: string[];
   isOnSale?: boolean;
   isFeatured?: boolean;
+  ingredients?: string[];
+  variants?: { id: string; name: string; type: string; options: string[] }[];
+  isAvailable?: boolean;
 }
 
 export default function AdminProducts() {
@@ -22,7 +27,20 @@ export default function AdminProducts() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', price: 0, salePrice: '', stock: 0, images: [] as string[] });
+  const [editForm, setEditForm] = useState({
+    name: '',
+    description: '',
+    shortDescription: '',
+    price: 0,
+    salePrice: '',
+    stock: 0,
+    category: 'weight-loss',
+    images: [] as string[],
+    ingredients: '',
+    flavors: '',
+    sizes: '',
+    isAvailable: true,
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -135,12 +153,25 @@ export default function AdminProducts() {
 
   const handleEdit = (product: ProductItem) => {
     setSelectedProduct(product);
+
+    // Map variants back to string
+    const flavors = product.variants?.find(v => v.type === 'flavor')?.options.join(', ') || '';
+    const sizes = product.variants?.find(v => v.type === 'size')?.options.join(', ') || '';
+    const ingredients = product.ingredients?.join('\n') || '';
+
     setEditForm({
       name: product.name,
+      description: product.description || '',
+      shortDescription: product.shortDescription || '',
       price: product.price,
       salePrice: product.salePrice?.toString() || '',
       stock: product.stock,
+      category: product.category || 'weight-loss',
       images: product.images || [],
+      ingredients,
+      flavors,
+      sizes,
+      isAvailable: product.isAvailable !== false
     });
   };
 
@@ -148,20 +179,49 @@ export default function AdminProducts() {
     if (!selectedProduct) return;
     setSaving(true);
     try {
+      // Process Variants
+      const variants = [];
+      if (editForm.flavors.trim()) {
+        variants.push({
+          id: `var_flavor_${Date.now()}`,
+          name: 'รสชาติ',
+          type: 'flavor',
+          options: editForm.flavors.split(',').map(s => s.trim()).filter(Boolean)
+        });
+      }
+      if (editForm.sizes.trim()) {
+        variants.push({
+          id: `var_size_${Date.now()}`,
+          name: 'ขนาด',
+          type: 'size',
+          options: editForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
+        });
+      }
+
+      // Process Ingredients
+      const ingredientsList = editForm.ingredients.split('\n').map(s => s.trim()).filter(Boolean);
+
       const res = await fetch(`/api/admin/products/${selectedProduct._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editForm.name,
+          description: editForm.description,
+          shortDescription: editForm.shortDescription,
           price: Number(editForm.price),
           salePrice: editForm.salePrice ? Number(editForm.salePrice) : undefined,
           stock: Number(editForm.stock),
+          category: editForm.category,
           images: editForm.images,
+          ingredients: ingredientsList,
+          variants: variants,
+          isAvailable: editForm.isAvailable,
         }),
       });
       if (res.ok) {
         setSelectedProduct(null);
         fetchProducts();
+        alert('บันทึกสำเร็จ');
       }
     } catch (err) {
       console.error('Failed to save product:', err);
@@ -373,6 +433,69 @@ export default function AdminProducts() {
                   className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
                 />
               </div>
+
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">คำโปรยสั้นๆ</label>
+                <input
+                  type="text"
+                  value={editForm.shortDescription}
+                  onChange={(e) => setEditForm({ ...editForm, shortDescription: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รายละเอียดสินค้า</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-24"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">หมวดหมู่</label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                >
+                  <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
+                  <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
+                  <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
+                  <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รสชาติ (,)</label>
+                  <input
+                    type="text"
+                    value={editForm.flavors}
+                    onChange={(e) => setEditForm({ ...editForm, flavors: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ขนาด (,)</label>
+                  <input
+                    type="text"
+                    value={editForm.sizes}
+                    onChange={(e) => setEditForm({ ...editForm, sizes: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ส่วนประกอบ (บรรทัดละ 1)</label>
+                <textarea
+                  value={editForm.ingredients}
+                  onChange={(e) => setEditForm({ ...editForm, ingredients: e.target.value })}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-20"
+                />
+              </div>
               <div>
                 <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ราคา</label>
                 <input
@@ -399,6 +522,21 @@ export default function AdminProducts() {
                   onChange={(e) => setEditForm({ ...editForm, stock: Number(e.target.value) })}
                   className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
                 />
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.08] bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={editForm.isAvailable}
+                    onChange={(e) => setEditForm({ ...editForm, isAvailable: e.target.checked })}
+                    className="w-5 h-5 rounded accent-green-500"
+                  />
+                  <div>
+                    <span className="text-white font-medium block">วางจำหน่าย (In Stock)</span>
+                    <span className="text-xs text-[rgb(var(--text-muted))]">หากติ๊กออก สินค้าจะแสดงเป็น "สินค้าหมด" ทันที</span>
+                  </div>
+                </label>
               </div>
               <div className="flex gap-3 pt-4">
                 <button

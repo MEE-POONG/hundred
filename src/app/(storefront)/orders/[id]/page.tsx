@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation'; // Added useRouter
 import Link from 'next/link';
 import { Order, OrderTimeline } from '@/data/types';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
+import { useToast } from '@/components/ui/Toast'; // Added Toast
 
 const statusConfig = {
   pending_payment: { label: 'รอชำระเงิน', variant: 'warning' as const, color: '#F59E0B' },
@@ -63,6 +64,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>('pending_payment');
+  const { showToast } = useToast();
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -81,6 +83,32 @@ export default function OrderDetailPage() {
     };
     if (orderId) fetchOrder();
   }, [orderId]);
+
+  const handlePaymentConfirm = async () => {
+    if (!confirm('ยืนยันการแจ้งชำระเงิน?')) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'paid' }),
+      });
+      if (res.ok) {
+        showToast('แจ้งชำระเงินสำเร็จ!', 'success');
+        const updatedOrder = await res.json();
+        setOrder(updatedOrder);
+        setCurrentStatus('paid');
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to update', 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Error updating status', 'error');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -106,6 +134,9 @@ export default function OrderDetailPage() {
 
   const statusInfo = statusConfig[currentStatus];
   const timelineSteps = getTimelineSteps({ ...order, status: currentStatus });
+
+  // QR Code URL (Mock PromptPay)
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PromptPay-0851234567-Amount-${order?.total}`;
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
@@ -150,6 +181,37 @@ export default function OrderDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Payment Section (Display if pending_payment) */}
+          {currentStatus === 'pending_payment' && (
+            <Card className="p-8 border-2 border-[rgb(var(--primary))] bg-gradient-to-br from-[rgb(var(--primary))]/10 to-[rgb(var(--secondary))]/10">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold mb-4 text-white">ชำระเงินผ่าน QR Code</h2>
+                <p className="text-[rgb(var(--text-muted))] mb-6">สแกน QR Code เพื่อชำระเงิน (PromptPay)</p>
+
+                <div className="bg-white p-4 inline-block rounded-xl mb-6 shadow-lg">
+                  <img src={qrCodeUrl} alt="PromptPay QR" className="w-48 h-48 md:w-64 md:h-64 object-contain" />
+                </div>
+
+                <div className="text-3xl font-bold text-[rgb(var(--primary))] mb-2">
+                  {formatCurrency(order.total)}
+                </div>
+                <p className="text-sm text-[rgb(var(--text-muted))] mb-8 max-w-md mx-auto">
+                  เมื่อโอนเงินเรียบร้อยแล้ว กรุณากดปุ่มด้านล่างเพื่อแจ้งชำระเงิน (ระบบจะตรวจสอบยอดเงินอัตโนมัติภายใน 5 นาที - *จำลอง*)
+                </p>
+
+                <Button
+                  size="lg"
+                  onClick={handlePaymentConfirm}
+                  disabled={isUpdatingStatus}
+                  className="w-full md:w-auto px-12 font-bold text-lg shadow-xl shadow-[rgb(var(--primary))]/20 hover:shadow-[rgb(var(--primary))]/40"
+                >
+                  {isUpdatingStatus ? '⏳ กำลังแจ้ง...' : '✅ แจ้งโอนเงิน'}
+                </Button>
+              </div>
+            </Card>
+          )}
+
           <Card className="p-8">
             <h2 className="text-2xl font-bold mb-8">สถานะการจัดส่ง</h2>
             <div className="relative">
@@ -160,10 +222,10 @@ export default function OrderDetailPage() {
                   <div key={index} className="relative pl-20">
                     <div
                       className={`absolute left-0 w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold transition-all duration-300 ${step.completed
-                          ? 'bg-gradient-primary text-white glow-pink scale-100'
-                          : currentStatus === step.status
-                            ? 'bg-white/10 border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] animate-pulse'
-                            : 'bg-white/5 border-2 border-white/20 text-[rgb(var(--text-muted))]'
+                        ? 'bg-gradient-primary text-white glow-pink scale-100'
+                        : currentStatus === step.status
+                          ? 'bg-white/10 border-2 border-[rgb(var(--primary))] text-[rgb(var(--primary))] animate-pulse'
+                          : 'bg-white/5 border-2 border-white/20 text-[rgb(var(--text-muted))]'
                         }`}
                     >
                       {step.completed ? '✓' : index + 1}
@@ -184,21 +246,15 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-white/10">
-              <p className="text-sm text-[rgb(var(--text-muted))] mb-4">
-                สถานะปัจจุบัน: <span className="text-[rgb(var(--primary))] font-semibold">{statusInfo.label}</span>
-              </p>
-              <Button
-                onClick={demoNextStatus}
-                disabled={currentStatus === 'delivered' || isUpdatingStatus}
-                className="relative"
-              >
-                {isUpdatingStatus && (
-                  <span className="absolute inset-0 bg-black/20 rounded-2xl animate-pulse" />
-                )}
-                {isUpdatingStatus ? '⏳ กำลังอัปเดต...' : 'Demo: เปลี่ยนสถานะไปขั้นต่อไป'}
-              </Button>
-            </div>
+            {/* Demo Status Button - Keeping for dev purposes if needed, or removing as we have real payment flow now */}
+            {/* <div className="mt-8 pt-8 border-t border-white/10">
+               <p className="text-sm text-[rgb(var(--text-muted))] mb-4">
+                 Dev Mode: Force Next Status
+               </p>
+               <Button onClick={demoNextStatus} variant="outline" size="sm">
+                 Skip Status >>
+               </Button>
+            </div> */}
           </Card>
 
           <Card className="p-8">
