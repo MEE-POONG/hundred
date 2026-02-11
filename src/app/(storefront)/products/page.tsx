@@ -15,7 +15,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || '');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]); // Increased max price
   const [minRating, setMinRating] = useState(0);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>('featured');
@@ -43,14 +43,17 @@ export default function ProductsPage() {
 
   const filteredProducts = useMemo(() => {
     let filtered = [...products].filter(product => {
-      const nameMatch = product.name?.toLowerCase().includes(search.toLowerCase());
-      const descMatch = product.description?.toLowerCase().includes(search.toLowerCase());
+      const nameMatch = product.name?.toLowerCase().includes(search.toLowerCase()) || false;
+      const descMatch = product.description?.toLowerCase().includes(search.toLowerCase()) || false;
       const matchesSearch = nameMatch || descMatch;
-      const matchesCategory = !selectedCategory || product.category === selectedCategory;
-      const price = product.salePrice || product.price;
+
+      const matchesCategory = !selectedCategory || product.category === selectedCategory || product.categoryName === selectedCategory; // Check both fields
+
+      const price = Number(product.salePrice || product.price || 0);
       const matchesPrice = price >= priceRange[0] && price <= priceRange[1];
-      const matchesRating = product.rating >= minRating;
-      const matchesStock = !inStockOnly || product.stock > 0;
+
+      const matchesRating = (product.rating || 0) >= minRating;
+      const matchesStock = !inStockOnly || (product.stock || 0) > 0;
 
       return matchesSearch && matchesCategory && matchesPrice && matchesRating && matchesStock;
     });
@@ -67,12 +70,12 @@ export default function ProductsPage() {
     }
 
     return filtered;
-  }, [search, selectedCategory, priceRange, minRating, inStockOnly, sortBy]);
+  }, [products, search, selectedCategory, priceRange, minRating, inStockOnly, sortBy]); // Added products to dependency
 
   const handleClearFilters = () => {
     setSearch('');
     setSelectedCategory('');
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 1000000]); // Matches initial state
     setMinRating(0);
     setInStockOnly(false);
   };

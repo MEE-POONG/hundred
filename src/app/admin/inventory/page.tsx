@@ -1,57 +1,59 @@
 'use client';
 
-import { useState } from 'react';
-import { products } from '@/data/products';
-import { StockMovement } from '@/data/types';
+import { useState, useEffect } from 'react';
 
-// Mock stock movements
-const mockStockMovements: StockMovement[] = [
-  {
-    id: 'sm1',
-    productId: 'p1',
-    productName: 'Fat Burn Extreme 3000',
-    type: 'in',
-    quantity: 50,
-    reason: 'Stock In',
-    date: '2025-12-22T10:00:00Z',
-  },
-  {
-    id: 'sm2',
-    productId: 'p2',
-    productName: 'Collagen Plus+ Premium',
-    type: 'out',
-    quantity: 10,
-    reason: 'Sold',
-    date: '2025-12-22T14:30:00Z',
-  },
-  {
-    id: 'sm3',
-    productId: 'p3',
-    productName: 'Mega Multivitamin Complex',
-    type: 'out',
-    quantity: 5,
-    reason: 'Sold',
-    date: '2025-12-21T09:15:00Z',
-  },
-  {
-    id: 'sm4',
-    productId: 'p5',
-    productName: 'Detox Fiber Plus',
-    type: 'in',
-    quantity: 30,
-    reason: 'Stock In',
-    date: '2025-12-20T16:00:00Z',
-  },
-];
+interface ProductStock {
+  _id: string;
+  name: string;
+  images: string[];
+  stock: number;
+  sold: number;
+  slug: string;
+}
+
+interface Movement {
+  _id: string;
+  product: string;
+  productName: string;
+  type: 'in' | 'out';
+  quantity: number;
+  reason: string;
+  note: string;
+  performedBy: string;
+  createdAt: string;
+}
 
 export default function AdminInventory() {
+  const [products, setProducts] = useState<ProductStock[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterStock, setFilterStock] = useState('all');
-  const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<ProductStock | null>(null);
   const [movementType, setMovementType] = useState<'in' | 'out'>('in');
   const [movementQty, setMovementQty] = useState('');
   const [movementReason, setMovementReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
-  // Filter products by stock level
+  const fetchInventory = async () => {
+    try {
+      const res = await fetch('/api/admin/inventory');
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data.products);
+        setMovements(data.movements);
+      }
+    } catch (err) {
+      console.error('Failed to fetch inventory:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
   const lowStockProducts = products.filter(p => p.stock < 10);
   const outOfStockProducts = products.filter(p => p.stock === 0);
 
@@ -61,23 +63,67 @@ export default function AdminInventory() {
     return true;
   });
 
-  const handleMovement = (e: React.FormEvent) => {
+  const handleMovement = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedProduct && movementQty && movementReason) {
-      alert(`บันทึกการเคลื่อนสต็อก: ${selectedProduct.name} - ${movementType === 'in' ? 'นำเข้า' : 'นำออก'} ${movementQty} ชิ้น`);
-      setSelectedProduct(null);
-      setMovementQty('');
-      setMovementReason('');
+    if (!selectedProduct || !movementQty || !movementReason) return;
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/admin/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: selectedProduct._id,
+          type: movementType,
+          quantity: parseInt(movementQty),
+          reason: movementReason,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setSuccessMsg(`บันทึกสำเร็จ! สต็อกใหม่: ${data.newStock}`);
+        setTimeout(() => setSuccessMsg(''), 3000);
+        setSelectedProduct(null);
+        setMovementQty('');
+        setMovementReason('');
+        // Refresh data
+        fetchInventory();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการบันทึก');
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-1">Inventory</h1>
+          <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-white mb-1">Inventory</h1>
-        <p className="text-[rgb(var(--text-muted))]">จัดการสต็อกสินค้า</p>
+        <p className="text-[rgb(var(--text-muted))]">จัดการสต็อกสินค้า ({products.length} รายการ)</p>
       </div>
+
+      {successMsg && (
+        <div className="p-4 bg-green-500/20 text-green-400 rounded-lg border border-green-500/30">
+          ✅ {successMsg}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -105,75 +151,53 @@ export default function AdminInventory() {
         <div className="lg:col-span-2 space-y-4">
           {/* Filter */}
           <div className="flex gap-2 bg-white/5 p-3 rounded-lg border border-white/[0.08]">
-            <button
-              onClick={() => setFilterStock('all')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                filterStock === 'all'
-                  ? 'bg-gradient-primary text-white'
-                  : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-              }`}
-            >
-              ทั้งหมด
-            </button>
-            <button
-              onClick={() => setFilterStock('low')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                filterStock === 'low'
-                  ? 'bg-yellow-500 text-white'
-                  : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-              }`}
-            >
-              ใกล้หมด
-            </button>
-            <button
-              onClick={() => setFilterStock('out')}
-              className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                filterStock === 'out'
-                  ? 'bg-red-500 text-white'
-                  : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-              }`}
-            >
-              หมดสต็อก
-            </button>
+            {[
+              { key: 'all', label: 'ทั้งหมด', color: 'bg-gradient-primary' },
+              { key: 'low', label: 'ใกล้หมด', color: 'bg-yellow-500' },
+              { key: 'out', label: 'หมดสต็อก', color: 'bg-red-500' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilterStock(f.key)}
+                className={`px-3 py-1 rounded text-sm font-medium transition-all ${filterStock === f.key
+                    ? `${f.color} text-white`
+                    : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
+                  }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
 
           {/* Stock Items */}
           <div className="space-y-3">
-            {filteredProducts.map(product => {
+            {filteredProducts.map((product) => {
               const isLowStock = product.stock < 10;
               const isOutOfStock = product.stock === 0;
 
               return (
                 <div
-                  key={product.id}
-                  className={`card-surface p-4 flex items-center justify-between hover:border-white/20 transition-all ${
-                    isOutOfStock ? 'border-red-500/30' : isLowStock ? 'border-yellow-500/30' : ''
-                  }`}
+                  key={product._id}
+                  className={`card-surface p-4 flex items-center justify-between hover:border-white/20 transition-all ${isOutOfStock ? 'border-red-500/30' : isLowStock ? 'border-yellow-500/30' : ''
+                    }`}
                 >
                   <div className="flex items-center gap-4 flex-1">
                     <img
-                      src={product.images[0]}
+                      src={product.images?.[0] || '/placeholder.png'}
                       alt={product.name}
                       className="w-12 h-12 rounded object-cover"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-white truncate">{product.name}</p>
-                      <p className="text-xs text-[rgb(var(--text-muted))]">{product.id}</p>
+                      <p className="text-xs text-[rgb(var(--text-muted))]">ขายแล้ว: {product.sold || 0}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-6">
                     <div className="text-center">
                       <p className="text-[rgb(var(--text-muted))] text-xs mb-1">สต็อก</p>
-                      <p
-                        className={`text-2xl font-bold ${
-                          isOutOfStock
-                            ? 'text-red-400'
-                            : isLowStock
-                            ? 'text-yellow-400'
-                            : 'text-green-400'
-                        }`}
-                      >
+                      <p className={`text-2xl font-bold ${isOutOfStock ? 'text-red-400' : isLowStock ? 'text-yellow-400' : 'text-green-400'
+                        }`}>
                         {product.stock}
                       </p>
                     </div>
@@ -195,37 +219,33 @@ export default function AdminInventory() {
         <div className="card-surface p-6">
           <h2 className="text-lg font-bold text-white mb-4">การเคลื่อนสต็อกล่าสุด</h2>
           <div className="space-y-3">
-            {mockStockMovements.slice(0, 8).map(movement => (
-              <div key={movement.id} className="pb-3 border-b border-white/[0.08] last:border-0 last:pb-0">
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                      movement.type === 'in' ? 'bg-green-500' : 'bg-red-500'
-                    }`}
-                  ></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {movement.productName}
-                    </p>
-                    <p className="text-xs text-[rgb(var(--text-muted))]">
-                      {movement.type === 'in' ? 'นำเข้า' : 'นำออก'} {movement.quantity} ชิ้น
-                    </p>
-                    <p className="text-xs text-[rgb(var(--text-muted))]">
-                      {new Date(movement.date).toLocaleDateString('th-TH')}
-                    </p>
+            {movements.length === 0 ? (
+              <p className="text-sm text-[rgb(var(--text-muted))]">ยังไม่มีการเคลื่อนสต็อก</p>
+            ) : (
+              movements.slice(0, 10).map((movement) => (
+                <div key={movement._id} className="pb-3 border-b border-white/[0.08] last:border-0 last:pb-0">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${movement.type === 'in' ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {movement.productName}
+                      </p>
+                      <p className="text-xs text-[rgb(var(--text-muted))]">
+                        {movement.type === 'in' ? 'นำเข้า' : 'นำออก'} {movement.quantity} ชิ้น — {movement.reason}
+                      </p>
+                      <p className="text-xs text-[rgb(var(--text-muted))]">
+                        {new Date(movement.createdAt).toLocaleDateString('th-TH')} {new Date(movement.createdAt).toLocaleTimeString('th-TH')}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${movement.type === 'in' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                      }`}>
+                      {movement.type === 'in' ? '+' : '-'}{movement.quantity}
+                    </span>
                   </div>
-                  <span
-                    className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${
-                      movement.type === 'in'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
-                    }`}
-                  >
-                    {movement.type === 'in' ? '+' : '-'}{movement.quantity}
-                  </span>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -247,7 +267,7 @@ export default function AdminInventory() {
             <form onSubmit={handleMovement} className="p-6 space-y-4">
               <div className="text-center mb-4">
                 <img
-                  src={selectedProduct.images[0]}
+                  src={selectedProduct.images?.[0] || '/placeholder.png'}
                   alt={selectedProduct.name}
                   className="w-20 h-20 rounded mx-auto mb-3 object-cover"
                 />
@@ -261,24 +281,22 @@ export default function AdminInventory() {
                   <button
                     type="button"
                     onClick={() => setMovementType('in')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      movementType === 'in'
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${movementType === 'in'
                         ? 'bg-green-500 text-white'
                         : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-                    }`}
+                      }`}
                   >
-                    นำเข้า
+                    📥 นำเข้า
                   </button>
                   <button
                     type="button"
                     onClick={() => setMovementType('out')}
-                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      movementType === 'out'
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${movementType === 'out'
                         ? 'bg-red-500 text-white'
                         : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
-                    }`}
+                      }`}
                   >
-                    นำออก
+                    📤 นำออก
                   </button>
                 </div>
               </div>
@@ -288,10 +306,12 @@ export default function AdminInventory() {
                 <input
                   type="number"
                   required
+                  min="1"
                   value={movementQty}
                   onChange={(e) => setMovementQty(e.target.value)}
                   className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
                   placeholder="0"
+                  suppressHydrationWarning
                 />
               </div>
 
@@ -302,12 +322,14 @@ export default function AdminInventory() {
                   value={movementReason}
                   onChange={(e) => setMovementReason(e.target.value)}
                   className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                  suppressHydrationWarning
                 >
                   <option value="" className="bg-[rgb(var(--surface))]">เลือกเหตุผล</option>
-                  <option value="Stock In" className="bg-[rgb(var(--surface))]">สินค้าเข้า</option>
-                  <option value="Sold" className="bg-[rgb(var(--surface))]">ขายออก</option>
-                  <option value="Adjustment" className="bg-[rgb(var(--surface))]">ปรับแก้</option>
-                  <option value="Damaged" className="bg-[rgb(var(--surface))]">เสียหาย</option>
+                  <option value="สินค้าเข้า" className="bg-[rgb(var(--surface))]">สินค้าเข้า</option>
+                  <option value="ขายออก" className="bg-[rgb(var(--surface))]">ขายออก</option>
+                  <option value="ปรับแก้" className="bg-[rgb(var(--surface))]">ปรับแก้</option>
+                  <option value="เสียหาย" className="bg-[rgb(var(--surface))]">เสียหาย</option>
+                  <option value="คืนสินค้า" className="bg-[rgb(var(--surface))]">คืนสินค้า</option>
                 </select>
               </div>
 
@@ -321,9 +343,10 @@ export default function AdminInventory() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all font-semibold"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all font-semibold disabled:opacity-50"
                 >
-                  บันทึก
+                  {submitting ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>
               </div>
             </form>

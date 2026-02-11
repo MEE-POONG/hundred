@@ -1,41 +1,105 @@
 'use client';
 
-import { useState } from 'react';
-import { mockRedemptionHistory } from '@/data/tickets';
+import { useState, useEffect } from 'react';
+
+interface RedemptionItem {
+  _id: string;
+  user?: { name: string; email: string; image?: string };
+  productName: string;
+  productImage: string;
+  ticketsUsed: { rarity: string; quantity: number }[];
+  status: 'pending' | 'approved' | 'rejected' | 'shipped' | 'completed';
+  shippingAddress?: { name: string; phone: string; address: string };
+  trackingNumber?: string;
+  rejectedReason?: string;
+  createdAt: string;
+}
 
 export default function AdminRedemptions() {
+  const [redemptions, setRedemptions] = useState<RedemptionItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showDetail, setShowDetail] = useState<RedemptionItem | null>(null);
+  const [trackingInput, setTrackingInput] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const filteredRedemptions =
-    statusFilter === 'all'
-      ? mockRedemptionHistory
-      : mockRedemptionHistory.filter(r => r.status === statusFilter);
+  const fetchRedemptions = async () => {
+    try {
+      const res = await fetch('/api/admin/redemptions');
+      if (res.ok) {
+        const data = await res.json();
+        setRedemptions(data);
+      }
+    } catch (err) {
+      console.error('Error fetching redemptions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRedemptions();
+  }, []);
+
+  const handleStatusUpdate = async (id: string, status: string, extra?: any) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/redemptions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, ...extra }),
+      });
+      if (res.ok) {
+        setSuccessMsg(`อัปเดตสถานะเป็น "${getStatusLabel(status)}" สำเร็จ!`);
+        setTimeout(() => setSuccessMsg(''), 3000);
+        fetchRedemptions();
+        setShowDetail(null);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (err) {
+      alert('เกิดข้อผิดพลาดในการอัปเดต');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const filteredRedemptions = statusFilter === 'all'
+    ? redemptions
+    : redemptions.filter(r => r.status === statusFilter);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-500/20 text-yellow-400';
-      case 'completed':
-        return 'bg-green-500/20 text-green-400';
-      case 'shipped':
-        return 'bg-blue-500/20 text-blue-400';
-      default:
-        return 'bg-white/10 text-white';
+      case 'pending': return 'bg-yellow-500/20 text-yellow-400';
+      case 'approved': return 'bg-blue-500/20 text-blue-400';
+      case 'rejected': return 'bg-red-500/20 text-red-400';
+      case 'shipped': return 'bg-cyan-500/20 text-cyan-400';
+      case 'completed': return 'bg-green-500/20 text-green-400';
+      default: return 'bg-white/10 text-white';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'รอดำเนินการ';
-      case 'completed':
-        return 'เสร็จสิ้น';
-      case 'shipped':
-        return 'จัดส่งแล้ว';
-      default:
-        return status;
+      case 'pending': return 'รอดำเนินการ';
+      case 'approved': return 'อนุมัติแล้ว';
+      case 'rejected': return 'ปฏิเสธ';
+      case 'shipped': return 'จัดส่งแล้ว';
+      case 'completed': return 'เสร็จสิ้น';
+      default: return status;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold text-white mb-1">Redemptions</h1>
+        <p className="text-[rgb(var(--text-muted))]">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -45,92 +109,78 @@ export default function AdminRedemptions() {
         <p className="text-[rgb(var(--text-muted))]">จัดการการแลกตั๋ว</p>
       </div>
 
+      {successMsg && (
+        <div className="p-4 bg-green-500/20 text-green-400 rounded-lg border border-green-500/30">
+          ✅ {successMsg}
+        </div>
+      )}
+
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="card-surface p-6">
           <div className="text-3xl mb-2">🎁</div>
           <p className="text-[rgb(var(--text-muted))] text-sm mb-1">แลกทั้งหมด</p>
-          <p className="text-3xl font-bold text-white">{mockRedemptionHistory.length}</p>
+          <p className="text-3xl font-bold text-white">{redemptions.length}</p>
         </div>
-
         <div className="card-surface p-6">
           <div className="text-3xl mb-2">⏳</div>
           <p className="text-[rgb(var(--text-muted))] text-sm mb-1">รอดำเนินการ</p>
-          <p className="text-3xl font-bold text-yellow-400">
-            {mockRedemptionHistory.filter(r => r.status === 'pending').length}
-          </p>
+          <p className="text-3xl font-bold text-yellow-400">{redemptions.filter(r => r.status === 'pending').length}</p>
         </div>
-
+        <div className="card-surface p-6">
+          <div className="text-3xl mb-2">🚚</div>
+          <p className="text-[rgb(var(--text-muted))] text-sm mb-1">กำลังจัดส่ง</p>
+          <p className="text-3xl font-bold text-cyan-400">{redemptions.filter(r => r.status === 'shipped').length}</p>
+        </div>
         <div className="card-surface p-6">
           <div className="text-3xl mb-2">✅</div>
           <p className="text-[rgb(var(--text-muted))] text-sm mb-1">สำเร็จแล้ว</p>
-          <p className="text-3xl font-bold text-green-400">
-            {mockRedemptionHistory.filter(r => r.status === 'completed' || r.status === 'shipped').length}
-          </p>
+          <p className="text-3xl font-bold text-green-400">{redemptions.filter(r => r.status === 'completed').length}</p>
         </div>
       </div>
 
       {/* Filter */}
-      <div className="flex gap-2 bg-white/5 p-3 rounded-lg border border-white/[0.08]">
-        <button
-          onClick={() => setStatusFilter('all')}
-          className={`px-4 py-2 rounded text-sm font-medium transition-all ${
-            statusFilter === 'all'
-              ? 'bg-gradient-primary text-white'
-              : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
-        >
-          ทั้งหมด
-        </button>
-        <button
-          onClick={() => setStatusFilter('pending')}
-          className={`px-4 py-2 rounded text-sm font-medium transition-all ${
-            statusFilter === 'pending'
-              ? 'bg-yellow-500 text-white'
-              : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
-        >
-          รอดำเนินการ
-        </button>
-        <button
-          onClick={() => setStatusFilter('completed')}
-          className={`px-4 py-2 rounded text-sm font-medium transition-all ${
-            statusFilter === 'completed'
-              ? 'bg-green-500 text-white'
-              : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
-        >
-          เสร็จสิ้น
-        </button>
-        <button
-          onClick={() => setStatusFilter('shipped')}
-          className={`px-4 py-2 rounded text-sm font-medium transition-all ${
-            statusFilter === 'shipped'
-              ? 'bg-blue-500 text-white'
-              : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
-          }`}
-        >
-          จัดส่งแล้ว
-        </button>
+      <div className="flex gap-2 bg-white/5 p-3 rounded-lg border border-white/[0.08] flex-wrap">
+        {[
+          { key: 'all', label: 'ทั้งหมด' },
+          { key: 'pending', label: 'รอดำเนินการ' },
+          { key: 'approved', label: 'อนุมัติแล้ว' },
+          { key: 'shipped', label: 'จัดส่งแล้ว' },
+          { key: 'completed', label: 'เสร็จสิ้น' },
+          { key: 'rejected', label: 'ปฏิเสธ' },
+        ].map(f => (
+          <button
+            key={f.key}
+            onClick={() => setStatusFilter(f.key)}
+            className={`px-4 py-2 rounded text-sm font-medium transition-all ${statusFilter === f.key
+                ? 'bg-gradient-primary text-white'
+                : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
+              }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* Redemptions List */}
       <div className="space-y-4">
         {filteredRedemptions.length > 0 ? (
           filteredRedemptions.map((redemption) => (
-            <div key={redemption.id} className="card-surface p-6">
+            <div key={redemption._id} className="card-surface p-6">
               <div className="flex gap-6">
                 <img
-                  src={redemption.productImage}
+                  src={redemption.productImage || '/placeholder.png'}
                   alt={redemption.productName}
-                  className="w-24 h-24 rounded object-cover"
+                  className="w-24 h-24 rounded object-cover flex-shrink-0"
                 />
 
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="text-lg font-bold text-white">{redemption.productName}</h3>
-                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">ID: {redemption.id}</p>
+                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">
+                        โดย: {redemption.user?.name || redemption.user?.email || 'N/A'}
+                      </p>
                     </div>
                     <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(redemption.status)}`}>
                       {getStatusLabel(redemption.status)}
@@ -141,42 +191,77 @@ export default function AdminRedemptions() {
                     <div>
                       <p className="text-xs text-[rgb(var(--text-muted))] mb-1">ตั๋วที่ใช้</p>
                       <div className="space-y-1">
-                        {redemption.ticketsUsed.map((ticket, idx) => (
+                        {redemption.ticketsUsed?.map((ticket, idx) => (
                           <p key={idx} className="text-sm text-white">
                             {ticket.rarity} × {ticket.quantity}
                           </p>
                         ))}
                       </div>
                     </div>
-
                     <div>
                       <p className="text-xs text-[rgb(var(--text-muted))] mb-1">วันที่แลก</p>
                       <p className="text-sm text-white font-medium">
-                        {new Date(redemption.redeemedAt).toLocaleDateString('th-TH')}
+                        {new Date(redemption.createdAt).toLocaleDateString('th-TH')}
                       </p>
                       <p className="text-xs text-[rgb(var(--text-muted))]">
-                        {new Date(redemption.redeemedAt).toLocaleTimeString('th-TH')}
+                        {new Date(redemption.createdAt).toLocaleTimeString('th-TH')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white hover:bg-white/10 transition-colors font-medium text-sm">
-                      ดู
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setShowDetail(redemption)}
+                      className="px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white hover:bg-white/10 transition-colors font-medium text-sm"
+                    >
+                      👁️ ดูรายละเอียด
                     </button>
+
                     {redemption.status === 'pending' && (
                       <>
-                        <button className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/30 transition-colors font-medium text-sm">
-                          อนุมัติ
+                        <button
+                          onClick={() => handleStatusUpdate(redemption._id, 'approved')}
+                          disabled={actionLoading === redemption._id}
+                          className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+                        >
+                          {actionLoading === redemption._id ? '...' : '✅ อนุมัติ'}
                         </button>
-                        <button className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors font-medium text-sm">
-                          ปฏิเสธ
+                        <button
+                          onClick={() => {
+                            const reason = prompt('เหตุผลที่ปฏิเสธ:');
+                            if (reason !== null) {
+                              handleStatusUpdate(redemption._id, 'rejected', { rejectedReason: reason });
+                            }
+                          }}
+                          disabled={actionLoading === redemption._id}
+                          className="px-4 py-2 bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+                        >
+                          ❌ ปฏิเสธ
                         </button>
                       </>
                     )}
-                    {redemption.status === 'completed' && (
-                      <button className="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm">
-                        ทำเครื่องหมายว่าจัดส่ง
+
+                    {redemption.status === 'approved' && (
+                      <button
+                        onClick={() => {
+                          setShowDetail(redemption);
+                          setTrackingInput('');
+                        }}
+                        disabled={actionLoading === redemption._id}
+                        className="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+                      >
+                        🚚 ทำเครื่องหมายว่าจัดส่ง
+                      </button>
+                    )}
+
+                    {redemption.status === 'shipped' && (
+                      <button
+                        onClick={() => handleStatusUpdate(redemption._id, 'completed')}
+                        disabled={actionLoading === redemption._id}
+                        className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg hover:bg-green-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+                      >
+                        🎉 เสร็จสิ้น
                       </button>
                     )}
                   </div>
@@ -186,10 +271,96 @@ export default function AdminRedemptions() {
           ))
         ) : (
           <div className="card-surface p-12 text-center">
+            <p className="text-4xl mb-3">📭</p>
             <p className="text-[rgb(var(--text-muted))]">ไม่พบการแลกตั๋ว</p>
           </div>
         )}
       </div>
+
+      {/* Detail / Ship Modal */}
+      {showDetail && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[rgb(var(--surface))] rounded-xl max-w-lg w-full border border-white/[0.08] max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">รายละเอียดการแลก</h2>
+              <button onClick={() => setShowDetail(null)} className="p-1 hover:bg-white/10 rounded text-lg">
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex gap-4 items-center">
+                <img
+                  src={showDetail.productImage || '/placeholder.png'}
+                  alt={showDetail.productName}
+                  className="w-20 h-20 rounded object-cover"
+                />
+                <div>
+                  <h3 className="font-bold text-white text-lg">{showDetail.productName}</h3>
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(showDetail.status)}`}>
+                    {getStatusLabel(showDetail.status)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">ผู้แลก</p>
+                  <p className="text-sm text-white">{showDetail.user?.name || 'N/A'}</p>
+                  <p className="text-xs text-[rgb(var(--text-muted))]">{showDetail.user?.email || ''}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">วันที่แลก</p>
+                  <p className="text-sm text-white">{new Date(showDetail.createdAt).toLocaleString('th-TH')}</p>
+                </div>
+              </div>
+
+              {showDetail.shippingAddress && (
+                <div>
+                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">ที่อยู่จัดส่ง</p>
+                  <p className="text-sm text-white">{showDetail.shippingAddress.name} - {showDetail.shippingAddress.phone}</p>
+                  <p className="text-sm text-[rgb(var(--text-muted))]">{showDetail.shippingAddress.address}</p>
+                </div>
+              )}
+
+              {showDetail.trackingNumber && (
+                <div>
+                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">เลขพัสดุ</p>
+                  <p className="text-sm font-mono font-bold text-white">{showDetail.trackingNumber}</p>
+                </div>
+              )}
+
+              {showDetail.rejectedReason && (
+                <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                  <p className="text-xs text-red-400/70 mb-1">เหตุผลที่ปฏิเสธ</p>
+                  <p className="text-sm text-red-400">{showDetail.rejectedReason}</p>
+                </div>
+              )}
+
+              {/* Ship Action */}
+              {showDetail.status === 'approved' && (
+                <div className="border-t border-white/[0.08] pt-4 space-y-3">
+                  <p className="text-sm font-semibold text-white">จัดส่งสินค้า</p>
+                  <input
+                    type="text"
+                    value={trackingInput}
+                    onChange={(e) => setTrackingInput(e.target.value)}
+                    placeholder="เลขพัสดุ (ถ้ามี)"
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
+                  />
+                  <button
+                    onClick={() => handleStatusUpdate(showDetail._id, 'shipped', { trackingNumber: trackingInput })}
+                    disabled={actionLoading === showDetail._id}
+                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50"
+                  >
+                    {actionLoading === showDetail._id ? 'กำลังบันทึก...' : '🚚 ยืนยันจัดส่ง'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

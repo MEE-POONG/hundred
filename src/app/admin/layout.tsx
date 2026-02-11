@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 
 const adminMenuItems = [
@@ -23,14 +23,50 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  // Close notification dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (q.includes('order') || q.includes('ออเดอร์') || q.includes('คำสั่ง')) router.push('/admin/orders');
+      else if (q.includes('product') || q.includes('สินค้า')) router.push('/admin/products');
+      else if (q.includes('user') || q.includes('ผู้ใช้')) router.push('/admin/users');
+      else if (q.includes('ticket') || q.includes('ตั๋ว')) router.push('/admin/tickets');
+      else if (q.includes('report') || q.includes('รายงาน')) router.push('/admin/reports');
+      else if (q.includes('setting') || q.includes('ตั้งค่า')) router.push('/admin/settings');
+      else if (q.includes('inventory') || q.includes('สต็อก')) router.push('/admin/inventory');
+      else if (q.includes('redemption') || q.includes('แลก')) router.push('/admin/redemptions');
+      else router.push('/admin/dashboard');
+      setSearchQuery('');
+    }
+  };
+
+  // If on login page, render only children without sidebar/header
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-[rgb(var(--background))]">
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 h-screen bg-[rgb(var(--surface))] border-r border-white/[0.08] transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'
-          } overflow-y-auto`}
+          } overflow-y-auto z-50`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-white/[0.08] flex items-center justify-between">
@@ -78,17 +114,47 @@ export default function AdminLayout({
           <div className="flex-1 flex items-center gap-4">
             <input
               type="text"
-              placeholder="ค้นหา..."
+              placeholder="ค้นหาเมนู... (กด Enter)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearch}
               className="w-64 px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-[rgb(var(--text))] placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
             />
           </div>
 
           <div className="flex items-center gap-4">
             {/* Notifications */}
-            <button className="p-2 hover:bg-white/5 rounded-lg transition-colors relative">
-              <span className="text-xl">🔔</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 hover:bg-white/5 rounded-lg transition-colors relative"
+              >
+                <span className="text-xl">🔔</span>
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 top-12 w-80 bg-[rgb(var(--surface))] border border-white/[0.08] rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-4 border-b border-white/[0.08]">
+                    <h3 className="font-bold text-white text-sm">การแจ้งเตือน</h3>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    <div className="p-4 hover:bg-white/5 transition-colors border-b border-white/[0.05] cursor-pointer" onClick={() => { router.push('/admin/orders'); setShowNotifications(false); }}>
+                      <p className="text-sm text-white">🛒 มีออเดอร์ใหม่เข้ามา</p>
+                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">ตรวจสอบออเดอร์ล่าสุดได้ที่หน้า Orders</p>
+                    </div>
+                    <div className="p-4 hover:bg-white/5 transition-colors border-b border-white/[0.05] cursor-pointer" onClick={() => { router.push('/admin/inventory'); setShowNotifications(false); }}>
+                      <p className="text-sm text-white">⚠️ สินค้าบางรายการใกล้หมดสต็อก</p>
+                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">ตรวจสอบได้ที่หน้า Inventory</p>
+                    </div>
+                    <div className="p-4 hover:bg-white/5 transition-colors cursor-pointer" onClick={() => { router.push('/admin/redemptions'); setShowNotifications(false); }}>
+                      <p className="text-sm text-white">🎁 มีคำขอแลกตั๋วรอดำเนินการ</p>
+                      <p className="text-xs text-[rgb(var(--text-muted))] mt-1">ตรวจสอบได้ที่หน้า Redemptions</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* User Chip */}
             <div className="flex items-center gap-3 pl-4 border-l border-white/[0.08]">

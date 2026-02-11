@@ -44,11 +44,34 @@ export async function DELETE(
 
         const { id } = await params;
         await connectDB();
-        const product = await Product.findByIdAndDelete(id);
+
+        // Find product first to get images
+        const product = await Product.findById(id);
         if (!product) {
             return NextResponse.json({ error: 'ไม่พบสินค้า' }, { status: 404 });
         }
-        return NextResponse.json({ message: 'ลบสินค้าสำเร็จ' });
+
+        // Delete associated images
+        if (product.images && product.images.length > 0) {
+            try {
+                // Extract IDs from image URLs (e.g., /api/images/65df...)
+                const imageIds = product.images
+                    .map((url: string) => url.split('/api/images/')[1])
+                    .filter(Boolean); // Filter out invalid IDs
+
+                if (imageIds.length > 0) {
+                    const Image = (await import('@/models/Image')).default;
+                    await Image.deleteMany({ _id: { $in: imageIds } });
+                }
+            } catch (imgError) {
+                console.error('Failed to delete associated images:', imgError);
+                // Continue deleting product even if image delete fails
+            }
+        }
+
+        await Product.findByIdAndDelete(id);
+
+        return NextResponse.json({ message: 'ลบสินค้าและรูปภาพสำเร็จ' });
     } catch (error) {
         console.error('Product delete error:', error);
         return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });

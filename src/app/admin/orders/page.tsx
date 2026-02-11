@@ -25,7 +25,7 @@ export default function AdminOrders() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/orders');
+        const res = await fetch('/api/admin/orders');
         if (res.ok) {
           const data = await res.json();
           setOrders(data);
@@ -113,8 +113,8 @@ export default function AdminOrders() {
               key={status.value}
               onClick={() => setStatusFilter(status.value)}
               className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === status.value
-                  ? 'bg-gradient-primary text-white'
-                  : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
+                ? 'bg-gradient-primary text-white'
+                : 'bg-white/5 text-[rgb(var(--text-muted))] hover:bg-white/10'
                 }`}
             >
               {status.label}

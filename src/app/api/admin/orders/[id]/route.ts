@@ -20,15 +20,45 @@ export async function PATCH(
         const body = await request.json();
 
         const updateData: any = {};
+
+        // Handle Status Change
         if (body.status) {
             updateData.status = body.status;
-            if (body.status === 'paid') updateData.paidAt = new Date();
+
+            // If status is changed to PAID, reduce stock
+            if (body.status === 'paid') {
+                updateData.paidAt = new Date();
+
+                // Check prevent stock deduction multiple times
+                const currentOrder = await Order.findById(id);
+                // Only reduce stock if previous status was NOT paid/shipped/delivered
+                const isAlreadyPaid = ['paid', 'shipped', 'delivered'].includes(currentOrder?.status || '');
+
+                if (currentOrder && !isAlreadyPaid) {
+                    try {
+                        const Product = (await import('@/models/Product')).default;
+                        // Loop through items and reduce stock
+                        for (const item of currentOrder.items) {
+                            await Product.findByIdAndUpdate(item.product, {
+                                $inc: { stock: -item.quantity, sold: item.quantity }
+                            });
+                        }
+                    } catch (stockError) {
+                        console.error('Failed to adjust stock:', stockError);
+                    }
+                }
+            }
+
             if (body.status === 'shipped') updateData.shippedAt = new Date();
             if (body.status === 'delivered') updateData.deliveredAt = new Date();
         }
+
+        // Handle Tracking Number
         if (body.trackingNumber) updateData.trackingNumber = body.trackingNumber;
 
-        const order = await Order.findByIdAndUpdate(id, updateData, { new: true });
+        // Perform Update
+        const order = await Order.findByIdAndUpdate(id, { ...updateData, ...body }, { new: true });
+
         if (!order) {
             return NextResponse.json({ error: 'ไม่พบออเดอร์' }, { status: 404 });
         }
