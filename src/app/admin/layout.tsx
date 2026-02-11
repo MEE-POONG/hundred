@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 
 const adminMenuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
@@ -28,9 +29,8 @@ export default function AdminLayout({
     <div className="min-h-screen bg-[rgb(var(--background))]">
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-[rgb(var(--surface))] border-r border-white/[0.08] transition-all duration-300 ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } overflow-y-auto`}
+        className={`fixed left-0 top-0 h-screen bg-[rgb(var(--surface))] border-r border-white/[0.08] transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'
+          } overflow-y-auto`}
       >
         {/* Logo */}
         <div className="p-6 border-b border-white/[0.08] flex items-center justify-between">
@@ -58,11 +58,10 @@ export default function AdminLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-gradient-primary text-white'
-                    : 'text-[rgb(var(--text-muted))] hover:bg-white/5'
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                  ? 'bg-gradient-primary text-white'
+                  : 'text-[rgb(var(--text-muted))] hover:bg-white/5'
+                  }`}
               >
                 <span className="text-xl">{item.icon}</span>
                 {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
@@ -102,6 +101,17 @@ export default function AdminLayout({
                 alt="Admin"
                 className="w-10 h-10 rounded-full"
               />
+              <button
+                onClick={() => signOut({ callbackUrl: '/admin/login' })}
+                className="ml-2 p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
+                title="ออกจากระบบ"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
             </div>
           </div>
         </header>
