@@ -17,10 +17,10 @@ import { products } from '../data/products';
 import { mockOrders } from '../data/orders';
 import { ticketTypes } from '../data/tickets';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.DATABASE_URL || process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-    console.error('❌ MONGODB_URI is not defined in .env file');
+    console.error('❌ DATABASE_URL is not defined in .env file');
     process.exit(1);
 }
 
@@ -32,14 +32,17 @@ async function seedDatabase() {
 
         // Clear existing data
         console.log('🗑️  Clearing existing data...');
+        // await Product.deleteMany({}); // Comment out to avoid deleting products if run multiple times? Or keep it? The user said "data is lost", so it's empty. But let's keep it safe.
+        // Actually, seed script usually resets data. Let's keep deleteMany.
         await Product.deleteMany({});
         await User.deleteMany({});
-        await Order.deleteMany({});
-        await TicketType.deleteMany({});
+        // await Order.deleteMany({});
+        // await TicketType.deleteMany({});
         console.log('✅ Cleared existing data\n');
 
         // Seed Products
         console.log('📦 Seeding Products...');
+
         const productDocs = products.map(p => ({
             ...p,
             _id: undefined,
@@ -49,16 +52,17 @@ async function seedDatabase() {
 
         // Seed Admin User
         console.log('👑 Seeding Admin User...');
-        const adminPassword = await bcrypt.hash('admin123456', 12);
+        const adminPassword = await bcrypt.hash('admin123456', 10);
         await User.create({
             name: 'Admin',
-            email: 'admin@supplementshop.com',
+            email: 'admin@shop.com',
             password: adminPassword,
             role: 'admin',
             provider: 'credentials',
+            image: `https://ui-avatars.com/api/?name=Admin&background=random`,
         });
         console.log('✅ Admin account created');
-        console.log('   📧 Email: admin@supplementshop.com');
+        console.log('   📧 Email: admin@shop.com');
         console.log('   🔑 Password: admin123456\n');
 
         // Seed Ticket Types

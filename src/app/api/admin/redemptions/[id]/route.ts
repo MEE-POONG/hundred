@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/db';
+import connectDB from '@/lib/db';
 import Redemption from '@/models/Redemption';
 
 // PATCH: Update redemption status (approve, reject, ship, complete)
@@ -15,7 +15,7 @@ export async function PATCH(
     }
 
     const { id } = await params;
-    await dbConnect();
+    await connectDB();
 
     try {
         const body = await request.json();

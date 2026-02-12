@@ -50,6 +50,15 @@ export function TicketsProvider({ children }: { children: React.ReactNode }) {
           }));
         setOwnedTickets(tickets);
       }
+
+      // 3. Get Redemptions
+      const resRedemptions = await fetch('/api/user/redemptions');
+      if (resRedemptions.ok) {
+        const data = await resRedemptions.json();
+        // Frontend component expects 'redeemedAt' which our API returns
+        // Map any mismatches if necessary, but API aligns.
+        setRedemptionHistoryList(data);
+      }
     } catch (err) {
       console.error('Failed to fetch tickets:', err);
     } finally {

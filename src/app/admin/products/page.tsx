@@ -37,8 +37,8 @@ export default function AdminProducts() {
     category: 'weight-loss',
     images: [] as string[],
     ingredients: '',
-    flavors: '',
-    sizes: '',
+    flavors: [] as string[], // Changed to array
+    sizes: [] as string[],   // Changed to array
     isAvailable: true,
   });
   const [saving, setSaving] = useState(false);
@@ -48,9 +48,9 @@ export default function AdminProducts() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
-
-
-
+  // Temporary Inputs for Edit Modal
+  const [editFlavorInput, setEditFlavorInput] = useState('');
+  const [editSizeInput, setEditSizeInput] = useState('');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,9 +154,9 @@ export default function AdminProducts() {
   const handleEdit = (product: ProductItem) => {
     setSelectedProduct(product);
 
-    // Map variants back to string
-    const flavors = product.variants?.find(v => v.type === 'flavor')?.options.join(', ') || '';
-    const sizes = product.variants?.find(v => v.type === 'size')?.options.join(', ') || '';
+    // Map variants directly to array
+    const flavors = product.variants?.find(v => v.type === 'flavor')?.options || [];
+    const sizes = product.variants?.find(v => v.type === 'size')?.options || [];
     const ingredients = product.ingredients?.join('\n') || '';
 
     setEditForm({
@@ -173,6 +173,37 @@ export default function AdminProducts() {
       sizes,
       isAvailable: product.isAvailable !== false
     });
+    // Reset temp inputs
+    setEditFlavorInput('');
+    setEditSizeInput('');
+  };
+
+  // Tag Handlers for Edit Modal
+  const addEditFlavor = () => {
+    if (editFlavorInput.trim()) {
+      setEditForm(prev => ({ ...prev, flavors: [...prev.flavors, editFlavorInput.trim()] }));
+      setEditFlavorInput('');
+    }
+  };
+  const removeEditFlavor = (index: number) => {
+    setEditForm(prev => ({ ...prev, flavors: prev.flavors.filter((_, i) => i !== index) }));
+  };
+
+  const addEditSize = () => {
+    if (editSizeInput.trim()) {
+      setEditForm(prev => ({ ...prev, sizes: [...prev.sizes, editSizeInput.trim()] }));
+      setEditSizeInput('');
+    }
+  };
+  const removeEditSize = (index: number) => {
+    setEditForm(prev => ({ ...prev, sizes: prev.sizes.filter((_, i) => i !== index) }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, action: () => void) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      action();
+    }
   };
 
   const handleSave = async () => {
@@ -181,20 +212,20 @@ export default function AdminProducts() {
     try {
       // Process Variants
       const variants = [];
-      if (editForm.flavors.trim()) {
+      if (editForm.flavors.length > 0) {
         variants.push({
           id: `var_flavor_${Date.now()}`,
           name: 'รสชาติ',
           type: 'flavor',
-          options: editForm.flavors.split(',').map(s => s.trim()).filter(Boolean)
+          options: editForm.flavors
         });
       }
-      if (editForm.sizes.trim()) {
+      if (editForm.sizes.length > 0) {
         variants.push({
           id: `var_size_${Date.now()}`,
           name: 'ขนาด',
           type: 'size',
-          options: editForm.sizes.split(',').map(s => s.trim()).filter(Boolean)
+          options: editForm.sizes
         });
       }
 
@@ -396,161 +427,216 @@ export default function AdminProducts() {
 
       {/* Edit Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[rgb(var(--surface))] rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-white/[0.08]">
-            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between sticky top-0 bg-[rgb(var(--surface))] z-10">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-[rgb(var(--surface))] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/[0.08] shadow-2xl">
+            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between sticky top-0 bg-[rgb(var(--surface))] z-10 glass">
               <h2 className="text-xl font-bold text-white">แก้ไขสินค้า</h2>
-              <button onClick={() => setSelectedProduct(null)} className="p-1 hover:bg-white/10 rounded text-lg">✕</button>
+              <button onClick={() => setSelectedProduct(null)} className="p-2 hover:bg-white/10 rounded-full text-lg transition-colors">✕</button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รูปสินค้า</label>
-                <div className="flex flex-wrap gap-2">
-                  {editForm.images.map((img, idx) => (
-                    <div key={idx} className="relative w-16 h-16 rounded border border-white/20">
-                      <img src={img} alt="Product" className="w-full h-full object-cover rounded" />
-                      <button
-                        onClick={() => removeImage(idx)}
-                        className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]"
-                      >
-                        ✕
+            <div className="p-6 space-y-6">
+
+              {/* Product Info Section */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-[rgb(var(--text-muted))] uppercase tracking-wider mb-2">ข้อมูลทั่วไป</h3>
+
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รูปสินค้า</label>
+                  <div className="flex flex-wrap gap-3">
+                    {editForm.images.map((img, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-white/20 group">
+                        <img src={img} alt="Product" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeImage(idx)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    <label className="w-20 h-20 rounded-lg border-2 border-dashed border-white/20 flex flex-col items-center justify-center cursor-pointer hover:border-white/40 hover:bg-white/5 transition-all">
+                      <span className="text-xl mb-1">{uploading ? '⏳' : '+'}</span>
+                      <input type="file" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ชื่อสินค้า</label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">หมวดหมู่</label>
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    >
+                      <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
+                      <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
+                      <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
+                      <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">คำโปรยสั้นๆ</label>
+                  <input
+                    type="text"
+                    value={editForm.shortDescription}
+                    onChange={(e) => setEditForm({ ...editForm, shortDescription: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รายละเอียดสินค้า</label>
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-24"
+                  />
+                </div>
+              </div>
+
+              {/* Variants Section (New Tag Inputs) */}
+              <div className="space-y-4 pt-4 border-t border-white/[0.08]">
+                <h3 className="text-sm font-semibold text-[rgb(var(--text-muted))] uppercase tracking-wider mb-2">ตัวเลือกสินค้า</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Flavors */}
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รสชาติ (กด Enter เพิ่ม)</label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={editFlavorInput}
+                        onChange={(e) => setEditFlavorInput(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, addEditFlavor)}
+                        className="flex-1 px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-[rgb(var(--primary))]"
+                        placeholder="เพิ่มรสชาติ..."
+                      />
+                      <button type="button" onClick={addEditFlavor} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors">
+                        +
                       </button>
                     </div>
-                  ))}
-                  <label className="w-16 h-16 rounded border border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:bg-white/5">
-                    <span className="text-xl">{uploading ? '⏳' : '+'}</span>
-                    <input type="file" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                    <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/20 rounded-lg border border-white/[0.05]">
+                      {editForm.flavors.length > 0 ? editForm.flavors.map((flavor, index) => (
+                        <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-pink-500/20 text-pink-300 rounded text-xs border border-pink-500/30">
+                          {flavor}
+                          <button type="button" onClick={() => removeEditFlavor(index)} className="hover:text-white ml-1 font-bold">×</button>
+                        </span>
+                      )) : <span className="text-xs text-[rgb(var(--text-muted))] italic">ไม่มีรสชาติ</span>}
+                    </div>
+                  </div>
+
+                  {/* Sizes */}
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ขนาด (กด Enter เพิ่ม)</label>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={editSizeInput}
+                        onChange={(e) => setEditSizeInput(e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, addEditSize)}
+                        className="flex-1 px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-[rgb(var(--primary))]"
+                        placeholder="เพิ่มขนาด..."
+                      />
+                      <button type="button" onClick={addEditSize} className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors">
+                        +
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/20 rounded-lg border border-white/[0.05]">
+                      {editForm.sizes.length > 0 ? editForm.sizes.map((size, index) => (
+                        <span key={index} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs border border-blue-500/30">
+                          {size}
+                          <button type="button" onClick={() => removeEditSize(index)} className="hover:text-white ml-1 font-bold">×</button>
+                        </span>
+                      )) : <span className="text-xs text-[rgb(var(--text-muted))] italic">ไม่มีขนาด</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ส่วนประกอบ (บรรทัดละ 1)</label>
+                  <textarea
+                    value={editForm.ingredients}
+                    onChange={(e) => setEditForm({ ...editForm, ingredients: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-20"
+                    placeholder="Whey Protein Isolate..."
+                  />
+                </div>
+              </div>
+
+              {/* Pricing & Stock Section */}
+              <div className="space-y-4 pt-4 border-t border-white/[0.08]">
+                <h3 className="text-sm font-semibold text-[rgb(var(--text-muted))] uppercase tracking-wider mb-2">ราคาและสต็อก</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ราคาปกติ</label>
+                    <input
+                      type="number"
+                      value={editForm.price}
+                      onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ราคาขาย (โปรโมชั่น)</label>
+                    <input
+                      type="number"
+                      value={editForm.salePrice}
+                      onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">จำนวนในสต็อก</label>
+                    <input
+                      type="number"
+                      value={editForm.stock}
+                      onChange={(e) => setEditForm({ ...editForm, stock: Number(e.target.value) })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <label className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.08] bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isAvailable}
+                      onChange={(e) => setEditForm({ ...editForm, isAvailable: e.target.checked })}
+                      className="w-5 h-5 rounded accent-green-500"
+                    />
+                    <div>
+                      <span className="text-white font-medium block">วางจำหน่าย (In Stock)</span>
+                      <span className="text-xs text-[rgb(var(--text-muted))]">หากเอาออก สินค้าจะแสดงว่า "สินค้าหมด"</span>
+                    </div>
                   </label>
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ชื่อสินค้า</label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">คำโปรยสั้นๆ</label>
-                <input
-                  type="text"
-                  value={editForm.shortDescription}
-                  onChange={(e) => setEditForm({ ...editForm, shortDescription: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รายละเอียดสินค้า</label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-24"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">หมวดหมู่</label>
-                <select
-                  value={editForm.category}
-                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                >
-                  <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
-                  <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
-                  <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
-                  <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">รสชาติ (,)</label>
-                  <input
-                    type="text"
-                    value={editForm.flavors}
-                    onChange={(e) => setEditForm({ ...editForm, flavors: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ขนาด (,)</label>
-                  <input
-                    type="text"
-                    value={editForm.sizes}
-                    onChange={(e) => setEditForm({ ...editForm, sizes: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ส่วนประกอบ (บรรทัดละ 1)</label>
-                <textarea
-                  value={editForm.ingredients}
-                  onChange={(e) => setEditForm({ ...editForm, ingredients: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))] resize-none h-20"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ราคา</label>
-                <input
-                  type="number"
-                  value={editForm.price}
-                  onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">ราคาขาย</label>
-                <input
-                  type="number"
-                  value={editForm.salePrice}
-                  onChange={(e) => setEditForm({ ...editForm, salePrice: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                />
-              </div>
-              <div>
-                <label className="text-sm text-[rgb(var(--text-muted))] block mb-2">สต็อก</label>
-                <input
-                  type="number"
-                  value={editForm.stock}
-                  onChange={(e) => setEditForm({ ...editForm, stock: Number(e.target.value) })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
-                />
-              </div>
-
-              <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 rounded-lg border border-white/[0.08] bg-white/5 cursor-pointer hover:bg-white/10 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={editForm.isAvailable}
-                    onChange={(e) => setEditForm({ ...editForm, isAvailable: e.target.checked })}
-                    className="w-5 h-5 rounded accent-green-500"
-                  />
-                  <div>
-                    <span className="text-white font-medium block">วางจำหน่าย (In Stock)</span>
-                    <span className="text-xs text-[rgb(var(--text-muted))]">หากติ๊กออก สินค้าจะแสดงเป็น "สินค้าหมด" ทันที</span>
-                  </div>
-                </label>
-              </div>
-              <div className="flex gap-3 pt-4">
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-6 border-t border-white/[0.08]">
                 <button
                   onClick={() => setSelectedProduct(null)}
-                  className="flex-1 px-4 py-2 border border-white/[0.08] rounded-lg text-white hover:bg-white/5 transition-colors"
+                  className="flex-1 px-4 py-3 border border-white/[0.08] rounded-lg text-white hover:bg-white/5 transition-colors font-medium"
                 >
                   ยกเลิก
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 px-4 py-2 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all font-semibold disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-gradient-primary text-white rounded-lg hover:opacity-90 transition-all font-bold shadow-lg disabled:opacity-50"
                 >
-                  {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+                  {saving ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
                 </button>
               </div>
             </div>

@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const DATABASE_URL = process.env.DATABASE_URL;
 
-if (!MONGODB_URI) {
+if (!DATABASE_URL) {
   throw new Error(
-    'Please define the MONGODB_URI environment variable inside .env.local'
+    'Please define the DATABASE_URL environment variable inside .env.local'
   );
 }
 
@@ -41,14 +41,14 @@ async function connectDB() {
       bufferCommands: false,
     };
 
-    cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+    cached.promise = mongoose.connect(DATABASE_URL!, opts).then((mongoose) => {
       return mongoose;
     });
   }
 
   try {
     cached.conn = await cached.promise;
-    console.log('MongoDB Connected Successfully');
+    // console.log('MongoDB Connected Successfully');
   } catch (e) {
     cached.promise = null;
     throw e;

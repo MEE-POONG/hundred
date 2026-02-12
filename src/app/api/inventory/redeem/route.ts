@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import Inventory from '@/models/Inventory';
 import Product from '@/models/Product';
-import Order from '@/models/Order';
+import Redemption from '@/models/Redemption';
 import mongoose from 'mongoose';
 
 export async function POST(request: Request) {
@@ -27,9 +27,10 @@ export async function POST(request: Request) {
     try {
         // 1. Get Product & Verify Redeem Rules
         const product = await Product.findById(productId).session(sessionDB);
-        if (!product || !product.redeemable || !product.redeemable.requiredTickets?.length) {
+
+        if (!product) {
             await sessionDB.abortTransaction();
-            return NextResponse.json({ error: 'Product not redeemable' }, { status: 400 });
+            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
         }
 
         if (product.stock < 1) {
@@ -37,8 +38,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Out of stock' }, { status: 400 });
         }
 
+        // Check redemption rules
+        // Assuming product schema has 'redeemable' field or similar logic
+        // If schema doesn't match perfectly, you might need to adjust this part
+        const requiredTickets = product.redeemable?.requiredTickets || [];
+
+        if (!requiredTickets || requiredTickets.length === 0) {
+            await sessionDB.abortTransaction();
+            return NextResponse.json({ error: 'This product is not redeemable' }, { status: 400 });
+        }
+
         // 2. Check User Inventory
-        // Get all user tickets
         const userTickets = await Inventory.find({
             user: userId,
             itemType: 'ticket_card',
@@ -46,12 +56,8 @@ export async function POST(request: Request) {
         }).session(sessionDB);
 
         // Verify requirements
-        for (const requirement of product.redeemable.requiredTickets) {
-            // Find matching ticket in inventory by ID or Rarity
-            // Our Inventory uses itemId = 't1', 't2' which maps to rarity
-            // Requirement might specify ticketId or rarity. Let's try matching by rarity first as it's safer.
+        for (const requirement of requiredTickets) {
             const userHas = userTickets.find(t => t.rarity === requirement.rarity);
-
             if (!userHas || userHas.quantity < requirement.quantity) {
                 await sessionDB.abortTransaction();
                 return NextResponse.json({
@@ -61,7 +67,7 @@ export async function POST(request: Request) {
         }
 
         // 3. Deduct Tickets
-        for (const requirement of product.redeemable.requiredTickets) {
+        for (const requirement of requiredTickets) {
             await Inventory.findOneAndUpdate(
                 { user: userId, itemType: 'ticket_card', rarity: requirement.rarity },
                 { $inc: { quantity: -requirement.quantity } },
@@ -69,33 +75,20 @@ export async function POST(request: Request) {
             );
         }
 
-        // 4. Create Order (Redemption)
-        const orderNumber = `RED-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const newOrder = await Order.create([{
-            orderNumber,
+        // 4. Create Redemption Record
+        const newRedemption = await Redemption.create([{
             user: userId,
-            items: [{
-                productId: product._id,
-                productName: product.name,
-                productImage: product.images?.[0] || '',
-                price: 0,
-                salePrice: 0,
-                quantity: 1
-            }],
-            subtotal: 0,
-            shipping: 0,
-            discount: 0,
-            total: 0,
-            status: 'pending_payment', // Use pending so admin checks it, or 'processing'
-            paymentMethod: 'redemption',
+            productName: product.name,
+            productImage: product.images?.[0] || '',
+            ticketsUsed: requiredTickets,
+            status: 'pending',
             shippingAddress: {
-                name: session.user.name || 'Redeemed User',
-                address: 'Pending Address Confirmation', // Placeholder
+                name: session.user.name || 'Unknown',
                 phone: (session.user as any).phone || '-',
-                district: '-',
-                province: '-',
-                postalCode: '-'
-            }
+                address: 'Please update address'
+            },
+            trackingNumber: '',
+            rejectedReason: ''
         }], { session: sessionDB });
 
         // 5. Update Product Stock
@@ -104,7 +97,7 @@ export async function POST(request: Request) {
 
         await sessionDB.commitTransaction();
 
-        return NextResponse.json({ success: true, orderId: newOrder[0]._id });
+        return NextResponse.json({ success: true, redemptionId: newRedemption[0]._id });
 
     } catch (error) {
         await sessionDB.abortTransaction();

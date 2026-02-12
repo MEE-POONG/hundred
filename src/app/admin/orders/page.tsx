@@ -123,9 +123,10 @@ export default function AdminOrders() {
         </div>
       </div>
 
-      {/* Orders Table */}
+      {/* Orders List */}
       <div className="card-surface overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.08] bg-white/[0.02]">
@@ -179,6 +180,39 @@ export default function AdminOrders() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-4 p-4">
+          {filteredOrders.length > 0 ? (
+            filteredOrders.map((order) => (
+              <Link href={`/admin/orders/${order._id}`} key={order._id} className="block bg-white/5 border border-white/[0.08] rounded-xl p-4 active:bg-white/10 transition-colors">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-mono text-lg font-bold text-[rgb(var(--primary))]">{order.orderNumber}</h3>
+                    <p className="text-xs text-[rgb(var(--text-muted))]">
+                      {new Date(order.createdAt).toLocaleDateString('th-TH')} {new Date(order.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
+                    {getStatusLabel(order.status)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-end">
+                  <div className="text-sm">
+                    <p className="text-white font-medium">{order.shippingAddress?.name || 'ไม่ระบุชื่อ'}</p>
+                    <p className="text-[rgb(var(--text-muted))] text-xs">{order.items?.length || 0} รายการ</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-white">฿{(order.total || 0).toLocaleString('th-TH')}</p>
+                  </div>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="py-8 text-center text-[rgb(var(--text-muted))]">ไม่พบออเดอร์</div>
+          )}
         </div>
       </div>
     </div>
