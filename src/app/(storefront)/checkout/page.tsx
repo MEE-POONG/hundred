@@ -714,9 +714,14 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {couponDiscount > 0 && (
+                  {selectedCoupon && (
                     <div className="flex justify-between text-pink-400 font-medium">
-                      <span>ส่วนลดคูปอง</span>
+                      <span className="flex items-center gap-2">
+                        ส่วนลดคูปอง
+                        <span className="text-[10px] bg-pink-500/20 text-pink-300 px-1.5 py-0.5 rounded border border-pink-500/30">
+                          {selectedCoupon.code}
+                        </span>
+                      </span>
                       <span>-{couponDiscount.toFixed(2)} บาท</span>
                     </div>
                   )}

@@ -8,8 +8,8 @@ import { useToast } from '@/components/ui/Toast';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Card from '@/components/ui/Card';
-import { Product, Review } from '@/data/types';
-import { ProductCardSkeleton } from '@/components/ui/Skeleton';
+import { Product } from '@/data/types';
+import ProductReviews from '@/components/ProductReviews';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -19,7 +19,6 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
@@ -67,7 +66,6 @@ export default function ProductDetailPage() {
       return;
     }
 
-    // Check if all required variants are selected
     if (product.variants) {
       for (const variant of product.variants) {
         if (!selectedVariants[variant.name]) {
@@ -243,18 +241,18 @@ export default function ProductDetailPage() {
 
       {/* Tabs */}
       <div className="mb-8">
-        <div className="flex gap-4 border-b border-white/[0.08] mb-6">
+        <div className="flex gap-4 border-b border-white/[0.08] mb-6 overflow-x-auto pb-1">
           {[
             { key: 'details', label: 'รายละเอียด' },
             { key: 'ingredients', label: 'ส่วนประกอบ' },
             { key: 'directions', label: 'วิธีใช้' },
             { key: 'warnings', label: 'คำเตือน' },
-            { key: 'reviews', label: `รีวิว (${reviews.length})` },
+            { key: 'reviews', label: `รีวิว (${product.reviewCount || 0})` },
           ].map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`pb-3 px-2 border-b-2 transition-colors ${activeTab === tab.key
+              className={`pb-3 px-2 border-b-2 transition-colors whitespace-nowrap ${activeTab === tab.key
                 ? 'border-[rgb(var(--primary))] text-[rgb(var(--primary))]'
                 : 'border-transparent text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]'
                 }`}
@@ -302,38 +300,7 @@ export default function ProductDetailPage() {
 
           {activeTab === 'reviews' && (
             <div className="space-y-6">
-              {reviews.length === 0 ? (
-                <p className="text-center text-[rgb(var(--text-muted))] py-8">ยังไม่มีรีวิว</p>
-              ) : (
-                reviews.map(review => (
-                  <div key={review.id} className="border-b border-white/[0.08] pb-6 last:border-0">
-                    <div className="flex items-start gap-4">
-                      <img src={review.userAvatar} alt={review.userName} className="w-12 h-12 rounded-full" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-semibold">{review.userName}</span>
-                          <div className="flex items-center gap-1 text-yellow-400">
-                            {Array.from({ length: review.rating }).map((_, i) => (
-                              <span key={i}>⭐</span>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-[rgb(var(--text-muted))] mb-2">{review.comment}</p>
-                        {review.images && (
-                          <div className="flex gap-2">
-                            {review.images.map((img, idx) => (
-                              <img key={idx} src={img} alt="Review" className="w-20 h-20 rounded-lg object-cover" />
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-xs text-[rgb(var(--text-muted))] mt-2">
-                          {new Date(review.date).toLocaleDateString('th-TH')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+              <ProductReviews productId={product._id || product.id} />
             </div>
           )}
         </Card>
