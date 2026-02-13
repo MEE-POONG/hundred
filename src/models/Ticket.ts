@@ -11,6 +11,11 @@ const ticketSchema = new mongoose.Schema(
       type: String,
       unique: true,
     },
+    rarity: {
+      type: String,
+      enum: ['common', 'rare', 'epic', 'legendary'],
+      default: 'common',
+    },
     status: {
       type: String,
       enum: ['available', 'used', 'expired'],

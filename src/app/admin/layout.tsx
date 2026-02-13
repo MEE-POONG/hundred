@@ -8,9 +8,10 @@ import { signOut } from 'next-auth/react';
 const adminMenuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/admin/products', label: 'Products', icon: '📦' },
+  { href: '/admin/coupons', label: 'Coupons', icon: '🏷️' },
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
   { href: '/admin/inventory', label: 'Inventory', icon: '📦' },
-  { href: '/admin/tickets', label: 'Tickets', icon: '🎫' },
+  { href: '/admin/tickets', label: 'Tickets & Rewards', icon: '🎫' },
   { href: '/admin/redemptions', label: 'Redemptions', icon: '🎁' },
   { href: '/admin/users', label: 'Users', icon: '👥' },
   { href: '/admin/reports', label: 'Reports', icon: '📈' },

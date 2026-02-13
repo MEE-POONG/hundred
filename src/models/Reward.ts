@@ -34,6 +34,17 @@ const rewardSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        // Redemption Logic
+        isRedeemable: {
+            type: Boolean,
+            default: false, // Can be manually redeemed?
+        },
+        ticketCost: {
+            // e.g. { common: 10, rare: 2 }
+            type: Map,
+            of: Number,
+            default: {},
+        },
     },
     {
         timestamps: true,

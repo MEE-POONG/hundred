@@ -9,6 +9,7 @@ import { ProductCardSkeleton } from '@/components/ui/Skeleton';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import { Product } from '@/data/types';
+import CouponSection from '@/components/CouponSection';
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -94,6 +95,11 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* ============================================================ */}
+      {/* COUPON SECTION (NEW) */}
+      {/* ============================================================ */}
+      <CouponSection />
 
       {/* ============================================================ */}
       {/* Flash Deals */}
