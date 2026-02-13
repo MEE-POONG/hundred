@@ -10,6 +10,7 @@ import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
@@ -18,11 +19,45 @@ interface Address {
   id: string;
   name: string;
   address: string;
+  subDistrict: string;
   district: string;
   province: string;
   postalCode: string;
   phone: string;
   isDefault?: boolean;
+}
+
+interface ThaiAddressData {
+  id: number;
+  name_th: string;
+  name_en: string;
+  geography_id: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: null;
+  amphure: Amphure[];
+}
+
+interface Amphure {
+  id: number;
+  name_th: string;
+  name_en: string;
+  province_id: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: null;
+  tambon: Tambon[];
+}
+
+interface Tambon {
+  id: number;
+  name_th: string;
+  name_en: string;
+  amphure_id: number;
+  zip_code: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: null;
 }
 
 interface ShippingMethod {
@@ -112,14 +147,10 @@ export default function CheckoutPage() {
   // States
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
 
-  // Address State: Initialize sorted by default
-  const [addresses, setAddresses] = useState<Address[]>(() =>
-    [...mockAddresses].sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0))
-  );
+  // Address State: Initialize empty
+  const [addresses, setAddresses] = useState<Address[]>([]);
 
-  const [selectedAddressId, setSelectedAddressId] = useState<string>(
-    mockAddresses.find(a => a.isDefault)?.id || mockAddresses[0]?.id || ''
-  );
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
 
   const [selectedShippingId, setSelectedShippingId] = useState<string>('standard');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('credit-card');
@@ -129,6 +160,35 @@ export default function CheckoutPage() {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null); // If null, adding new
   const [addressForm, setAddressForm] = useState<Partial<Address>>({});
+
+  // Thai Address Data State
+  const [provincesData, setProvincesData] = useState<ThaiAddressData[]>([]);
+  const [loadingAddress, setLoadingAddress] = useState(false);
+
+  useEffect(() => {
+    const fetchThaiAddress = async () => {
+      setLoadingAddress(true);
+      try {
+        const res = await fetch('/data/thai_address.json');
+        if (res.ok) {
+          const data = await res.json();
+          setProvincesData(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch Thai address data', error);
+      } finally {
+        setLoadingAddress(false);
+      }
+    };
+    fetchThaiAddress();
+  }, []);
+
+  // Helper to find selected object from form value
+  const selectedProvinceObj = provincesData.find(p => p.name_th === addressForm.province);
+  const amphures = selectedProvinceObj?.amphure || [];
+  const selectedAmphureObj = amphures.find(a => a.name_th === addressForm.district); // district = amphure
+  const tambons = selectedAmphureObj?.tambon || [];
+  // subDistrict derived from form value logic or handled directly in onChange
 
   // Calculations
   const selectedShipping = SHIPPING_METHODS.find(m => m.id === selectedShippingId);
@@ -207,6 +267,7 @@ export default function CheckoutPage() {
         id: newId,
         name: addressForm.name!,
         address: addressForm.address!,
+        subDistrict: addressForm.subDistrict || '',
         district: addressForm.district || '',
         province: addressForm.province!,
         postalCode: addressForm.postalCode!,
@@ -395,7 +456,7 @@ export default function CheckoutPage() {
                                 {address.address}
                               </p>
                               <p className="text-[rgb(var(--text-muted))] text-sm">
-                                {address.district} {address.province} {address.postalCode}
+                                {address.subDistrict} {address.district} {address.province} {address.postalCode}
                               </p>
                               <p className="text-[rgb(var(--text-muted))] text-sm mt-2 flex items-center gap-2">
                                 📞 {address.phone}
@@ -510,7 +571,7 @@ export default function CheckoutPage() {
                       <div className="bg-[rgb(var(--background))]/50 rounded-xl p-4">
                         <p className="font-semibold mb-2">{selectedAddress.name}</p>
                         <p className="text-sm text-[rgb(var(--text-muted))]">{selectedAddress.address}</p>
-                        <p className="text-sm text-[rgb(var(--text-muted))]">{selectedAddress.district} {selectedAddress.province} {selectedAddress.postalCode}</p>
+                        <p className="text-sm text-[rgb(var(--text-muted))]">{selectedAddress.subDistrict} {selectedAddress.district} {selectedAddress.province} {selectedAddress.postalCode}</p>
                         <p className="text-sm text-[rgb(var(--text-muted))] mt-2">📞 {selectedAddress.phone}</p>
                       </div>
                     )}
@@ -599,15 +660,82 @@ export default function CheckoutPage() {
                   value={addressForm.address || ''} onChange={e => setAddressForm({ ...addressForm, address: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                {/* Province */}
+                <div className="relative">
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">จังหวัด</label>
-                  <input type="text" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="กรุงเทพฯ"
-                    value={addressForm.province || ''} onChange={e => setAddressForm({ ...addressForm, province: e.target.value })} />
+                  <SearchableSelect
+                    options={provincesData.map(p => ({ label: p.name_th, value: p.name_th }))}
+                    value={addressForm.province || ''}
+                    onChange={(val) => {
+                      const provinceName = val as string;
+                      setAddressForm(prev => ({
+                        ...prev,
+                        province: provinceName,
+                        district: '',
+                        subDistrict: '',
+                        postalCode: ''
+                      }));
+                    }}
+                    placeholder="ค้นหาจังหวัด..."
+                    disabled={loadingAddress}
+                    className="z-30"
+                  />
                 </div>
+
+                {/* Amphure (District) */}
+                <div className="relative">
+                  <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">อำเภอ/เขต</label>
+                  <SearchableSelect
+                    options={amphures.map(a => ({ label: a.name_th, value: a.name_th }))}
+                    value={addressForm.district || ''}
+                    onChange={(val) => {
+                      const districtName = val as string;
+                      setAddressForm(prev => ({
+                        ...prev,
+                        district: districtName,
+                        subDistrict: '',
+                        postalCode: ''
+                      }));
+                    }}
+                    placeholder="ค้นหาอำเภอ/เขต..."
+                    disabled={!addressForm.province}
+                    className="z-20"
+                  />
+                </div>
+
+                {/* Tambon (Sub-district) */}
+                <div className="relative">
+                  <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ตำบล/แขวง</label>
+                  <SearchableSelect
+                    options={tambons.map(t => ({ label: t.name_th, value: t.name_th }))}
+                    value={addressForm.subDistrict || ''}
+                    onChange={(val) => {
+                      const tambonName = val as string;
+                      const tambonObj = tambons.find(t => t.name_th === tambonName);
+                      setAddressForm(prev => ({
+                        ...prev,
+                        subDistrict: tambonName,
+                        postalCode: tambonObj ? String(tambonObj.zip_code) : ''
+                      }));
+                    }}
+                    placeholder="ค้นหาตำบล/แขวง..."
+                    disabled={!addressForm.district}
+                    className="z-10"
+                  />
+                </div>
+
+                {/* Zipcode */}
                 <div>
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">รหัสไปรษณีย์</label>
-                  <input type="text" required className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]" placeholder="10XXX"
-                    value={addressForm.postalCode || ''} onChange={e => setAddressForm({ ...addressForm, postalCode: e.target.value })} />
+                  <input
+                    type="text"
+                    required
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 focus:outline-none focus:border-[rgb(var(--primary))]"
+                    placeholder="XXXXX"
+                    value={addressForm.postalCode || ''}
+                    onChange={e => setAddressForm({ ...addressForm, postalCode: e.target.value })}
+                    readOnly // User can still edit if needed? Usually readOnly if selected by Tambon, but allow manual edit for edge cases
+                  />
                 </div>
               </div>
 

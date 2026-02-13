@@ -1,45 +1,87 @@
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import Redemption from '@/models/Redemption';
+import User from '@/models/User';
 
-// PATCH: Update redemption status (approve, reject, ship, complete)
-export async function PATCH(
-    request: Request,
+export async function GET(
+    req: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { id } = await params;
-    await connectDB();
-
     try {
-        const body = await request.json();
-        const { status, rejectedReason, trackingNumber } = body;
+        const { id } = await params; // Await params for Next.js 15+
 
-        const updateData: any = { status };
-
-        if (status === 'approved') updateData.approvedAt = new Date();
-        if (status === 'rejected') updateData.rejectedReason = rejectedReason || 'ไม่ผ่านเงื่อนไข';
-        if (status === 'shipped') {
-            updateData.shippedAt = new Date();
-            if (trackingNumber) updateData.trackingNumber = trackingNumber;
+        const session = await getServerSession(authOptions);
+        if (!session || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        if (status === 'completed') updateData.completedAt = new Date();
 
-        const redemption = await Redemption.findByIdAndUpdate(id, updateData, { new: true });
+        await connectDB();
+
+        const redemption = await Redemption.findById(id)
+            .populate('user', 'name email phone image')
+            .lean();
 
         if (!redemption) {
-            return NextResponse.json({ error: 'ไม่พบข้อมูลการแลก' }, { status: 404 });
+            return NextResponse.json({ error: 'Redemption not found' }, { status: 404 });
         }
 
         return NextResponse.json(redemption);
     } catch (error) {
-        console.error('Redemption update error:', error);
-        return NextResponse.json({ error: 'Failed to update redemption' }, { status: 500 });
+        console.error('Admin Fetch Redemption Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+export async function PATCH(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await params; // Await params for Next.js 15+
+
+        if (!id) {
+            console.error('API Error: params.id is missing');
+            return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
+        }
+        console.log('Admin PATCH Redemption ID:', id);
+
+        const session = await getServerSession(authOptions);
+        if (!session || (session.user as any).role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await req.json();
+        const { status, trackingNumber, rejectedReason } = body;
+
+        await connectDB();
+
+        const redemption = await Redemption.findById(id);
+
+        if (!redemption) {
+            return NextResponse.json({ error: 'Redemption not found' }, { status: 404 });
+        }
+
+        // Update fields based on status change
+        if (status) {
+            redemption.status = status;
+
+            // Set timestamps only if changing to that status for the first time
+            if (status === 'approved' && !redemption.approvedAt) redemption.approvedAt = new Date();
+            if (status === 'shipped' && !redemption.shippedAt) redemption.shippedAt = new Date();
+            if (status === 'completed' && !redemption.completedAt) redemption.completedAt = new Date();
+        }
+
+        if (trackingNumber !== undefined) redemption.trackingNumber = trackingNumber;
+        if (rejectedReason !== undefined) redemption.rejectedReason = rejectedReason;
+
+        await redemption.save();
+
+        return NextResponse.json(redemption);
+    } catch (error) {
+        console.error('Admin Update Redemption Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

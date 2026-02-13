@@ -14,6 +14,7 @@ const AddressSchema = new Schema({
   name: String,
   phone: String,
   address: String,
+  subDistrict: String,
   district: String,
   province: String,
   postalCode: String,

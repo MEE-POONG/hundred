@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 interface RedemptionItem {
   _id: string;
@@ -20,13 +21,11 @@ export default function AdminRedemptions() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [showDetail, setShowDetail] = useState<RedemptionItem | null>(null);
-  const [trackingInput, setTrackingInput] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   const fetchRedemptions = async () => {
     try {
-      const res = await fetch('/api/admin/redemptions');
+      const res = await fetch('/api/admin/redemptions', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setRedemptions(data);
@@ -43,6 +42,11 @@ export default function AdminRedemptions() {
   }, []);
 
   const handleStatusUpdate = async (id: string, status: string, extra?: any) => {
+    console.log('Attemping to update ID:', id); // Debug log
+    if (!id) {
+      alert('Error: ID is missing');
+      return;
+    }
     setActionLoading(id);
     try {
       const res = await fetch(`/api/admin/redemptions/${id}`, {
@@ -54,7 +58,6 @@ export default function AdminRedemptions() {
         setSuccessMsg(`อัปเดตสถานะเป็น "${getStatusLabel(status)}" สำเร็จ!`);
         setTimeout(() => setSuccessMsg(''), 3000);
         fetchRedemptions();
-        setShowDetail(null);
       } else {
         const err = await res.json();
         alert(err.error || 'เกิดข้อผิดพลาด');
@@ -153,8 +156,8 @@ export default function AdminRedemptions() {
             key={f.key}
             onClick={() => setStatusFilter(f.key)}
             className={`px-4 py-2 rounded text-sm font-medium transition-all ${statusFilter === f.key
-                ? 'bg-gradient-primary text-white'
-                : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
+              ? 'bg-gradient-primary text-white'
+              : 'text-[rgb(var(--text-muted))] hover:bg-white/10'
               }`}
           >
             {f.label}
@@ -211,12 +214,12 @@ export default function AdminRedemptions() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 flex-wrap">
-                    <button
-                      onClick={() => setShowDetail(redemption)}
-                      className="px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white hover:bg-white/10 transition-colors font-medium text-sm"
+                    <Link
+                      href={`/admin/redemptions/${redemption._id}`}
+                      className="px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white hover:bg-white/10 transition-colors font-medium text-sm inline-flex items-center"
                     >
                       👁️ ดูรายละเอียด
-                    </button>
+                    </Link>
 
                     {redemption.status === 'pending' && (
                       <>
@@ -243,16 +246,12 @@ export default function AdminRedemptions() {
                     )}
 
                     {redemption.status === 'approved' && (
-                      <button
-                        onClick={() => {
-                          setShowDetail(redemption);
-                          setTrackingInput('');
-                        }}
-                        disabled={actionLoading === redemption._id}
-                        className="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm disabled:opacity-50"
+                      <Link
+                        href={`/admin/redemptions/${redemption._id}`}
+                        className="px-4 py-2 bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/30 transition-colors font-medium text-sm inline-flex items-center"
                       >
-                        🚚 ทำเครื่องหมายว่าจัดส่ง
-                      </button>
+                        🚚 ไปจัดส่ง
+                      </Link>
                     )}
 
                     {redemption.status === 'shipped' && (
@@ -276,91 +275,6 @@ export default function AdminRedemptions() {
           </div>
         )}
       </div>
-
-      {/* Detail / Ship Modal */}
-      {showDetail && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[rgb(var(--surface))] rounded-xl max-w-lg w-full border border-white/[0.08] max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-white/[0.08] flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">รายละเอียดการแลก</h2>
-              <button onClick={() => setShowDetail(null)} className="p-1 hover:bg-white/10 rounded text-lg">
-                ✕
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="flex gap-4 items-center">
-                <img
-                  src={showDetail.productImage || '/placeholder.png'}
-                  alt={showDetail.productName}
-                  className="w-20 h-20 rounded object-cover"
-                />
-                <div>
-                  <h3 className="font-bold text-white text-lg">{showDetail.productName}</h3>
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${getStatusColor(showDetail.status)}`}>
-                    {getStatusLabel(showDetail.status)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">ผู้แลก</p>
-                  <p className="text-sm text-white">{showDetail.user?.name || 'N/A'}</p>
-                  <p className="text-xs text-[rgb(var(--text-muted))]">{showDetail.user?.email || ''}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">วันที่แลก</p>
-                  <p className="text-sm text-white">{new Date(showDetail.createdAt).toLocaleString('th-TH')}</p>
-                </div>
-              </div>
-
-              {showDetail.shippingAddress && (
-                <div>
-                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">ที่อยู่จัดส่ง</p>
-                  <p className="text-sm text-white">{showDetail.shippingAddress.name} - {showDetail.shippingAddress.phone}</p>
-                  <p className="text-sm text-[rgb(var(--text-muted))]">{showDetail.shippingAddress.address}</p>
-                </div>
-              )}
-
-              {showDetail.trackingNumber && (
-                <div>
-                  <p className="text-xs text-[rgb(var(--text-muted))] mb-1">เลขพัสดุ</p>
-                  <p className="text-sm font-mono font-bold text-white">{showDetail.trackingNumber}</p>
-                </div>
-              )}
-
-              {showDetail.rejectedReason && (
-                <div className="p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                  <p className="text-xs text-red-400/70 mb-1">เหตุผลที่ปฏิเสธ</p>
-                  <p className="text-sm text-red-400">{showDetail.rejectedReason}</p>
-                </div>
-              )}
-
-              {/* Ship Action */}
-              {showDetail.status === 'approved' && (
-                <div className="border-t border-white/[0.08] pt-4 space-y-3">
-                  <p className="text-sm font-semibold text-white">จัดส่งสินค้า</p>
-                  <input
-                    type="text"
-                    value={trackingInput}
-                    onChange={(e) => setTrackingInput(e.target.value)}
-                    placeholder="เลขพัสดุ (ถ้ามี)"
-                    className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white placeholder-[rgb(var(--text-muted))] focus:outline-none focus:border-[rgb(var(--primary))]"
-                  />
-                  <button
-                    onClick={() => handleStatusUpdate(showDetail._id, 'shipped', { trackingNumber: trackingInput })}
-                    disabled={actionLoading === showDetail._id}
-                    className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:opacity-50"
-                  >
-                    {actionLoading === showDetail._id ? 'กำลังบันทึก...' : '🚚 ยืนยันจัดส่ง'}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
