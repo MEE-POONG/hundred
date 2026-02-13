@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
-interface Coupon {
+interface CouponItem {
     _id: string;
     code: string;
     description?: string;
@@ -10,10 +12,13 @@ interface Coupon {
     discountValue: number;
     minPurchase: number;
     expirationDate?: string;
+    isCollected?: boolean;
 }
 
 export default function CouponSection() {
-    const [coupons, setCoupons] = useState<Coupon[]>([]);
+    const [coupons, setCoupons] = useState<CouponItem[]>([]);
+    const { data: session } = useSession();
+    const router = useRouter();
 
     useEffect(() => {
         fetch('/api/coupons/active')
@@ -24,9 +29,31 @@ export default function CouponSection() {
             .catch(console.error);
     }, []);
 
-    const handleCopy = (code: string) => {
-        navigator.clipboard.writeText(code);
-        alert(`Copied "${code}" to clipboard! 🎉`);
+    const handleCollect = async (couponId: string) => {
+        if (!session) {
+            router.push('/login');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/user/coupons/collect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ couponId }),
+            });
+
+            if (res.ok) {
+                setCoupons(prev => prev.map(c =>
+                    c._id === couponId ? { ...c, isCollected: true } : c
+                ));
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Failed to collect coupon');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error collecting coupon');
+        }
     };
 
     if (coupons.length === 0) return null;
@@ -67,13 +94,17 @@ export default function CouponSection() {
 
                         {/* Right: Code & Action */}
                         <div className="w-1/3 min-w-[100px] bg-white/5 p-4 flex flex-col items-center justify-center gap-2">
-                            <span className="text-xs text-[rgb(var(--text-muted))] uppercase tracking-widest text-center">CODE</span>
+                            <span className="text-xs text-[rgb(var(--text-muted))] uppercase tracking-widest text-center">{coupon.code}</span>
                             <button
-                                onClick={() => handleCopy(coupon.code)}
-                                className="w-full py-1.5 bg-white/10 hover:bg-white/20 rounded border border-white/10 text-white font-mono font-bold text-sm transition-all active:scale-95 text-center truncate px-2"
-                                title="Click to copy"
+                                onClick={() => !coupon.isCollected ? handleCollect(coupon._id) : null}
+                                disabled={!!coupon.isCollected}
+                                className={`w-full py-1.5 rounded border font-bold text-sm transition-all active:scale-95 text-center truncate px-2 ${coupon.isCollected
+                                        ? 'bg-green-500/20 text-green-400 border-green-500/30 cursor-default'
+                                        : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                                    }`}
+                                title={coupon.isCollected ? 'Collected' : 'Collect Coupon'}
                             >
-                                {coupon.code}
+                                {coupon.isCollected ? 'Collected' : 'Collect'}
                             </button>
                             <div className="text-[10px] text-[rgb(var(--text-muted))] text-center">
                                 {coupon.expirationDate

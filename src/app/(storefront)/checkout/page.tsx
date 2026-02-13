@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/components/ui/Toast';
-import { mockAddresses } from '@/data/addresses';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -75,6 +74,17 @@ interface PaymentMethod {
   icon: string;
 }
 
+interface UserCoupon {
+  _id: string; // UserCoupon ID
+  couponId: string;
+  code: string;
+  description?: string;
+  discountType: 'fixed' | 'percent';
+  discountValue: number;
+  minPurchase: number;
+  expirationDate?: string;
+}
+
 const SHIPPING_METHODS: ShippingMethod[] = [
   {
     id: 'standard',
@@ -131,6 +141,7 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const { items, removeItem } = useCart();
   const { showToast } = useToast();
+  const { data: session } = useSession();
 
   const selectedIdsString = searchParams.get('selected');
   const selectedIds = selectedIdsString ? new Set(selectedIdsString.split(',')) : null;
@@ -147,23 +158,44 @@ export default function CheckoutPage() {
   // States
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
 
-  // Address State: Initialize empty
+  // Address State
   const [addresses, setAddresses] = useState<Address[]>([]);
-
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
 
   const [selectedShippingId, setSelectedShippingId] = useState<string>('standard');
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>('credit-card');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Coupon State
+  const [myCoupons, setMyCoupons] = useState<UserCoupon[]>([]);
+  const [selectedUserCouponId, setSelectedUserCouponId] = useState<string>('');
+
   // Modal State
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState<string | null>(null); // If null, adding new
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressForm, setAddressForm] = useState<Partial<Address>>({});
 
   // Thai Address Data State
   const [provincesData, setProvincesData] = useState<ThaiAddressData[]>([]);
   const [loadingAddress, setLoadingAddress] = useState(false);
+
+  // Fetch Coupons
+  useEffect(() => {
+    if (session) {
+      const fetchCoupons = async () => {
+        try {
+          const res = await fetch('/api/user/coupons/my-coupons');
+          if (res.ok) {
+            const data = await res.json();
+            setMyCoupons(data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch coupons:', err);
+        }
+      };
+      fetchCoupons();
+    }
+  }, [session]);
 
   useEffect(() => {
     const fetchThaiAddress = async () => {
@@ -186,23 +218,33 @@ export default function CheckoutPage() {
   // Helper to find selected object from form value
   const selectedProvinceObj = provincesData.find(p => p.name_th === addressForm.province);
   const amphures = selectedProvinceObj?.amphure || [];
-  const selectedAmphureObj = amphures.find(a => a.name_th === addressForm.district); // district = amphure
+  const selectedAmphureObj = amphures.find(a => a.name_th === addressForm.district);
   const tambons = selectedAmphureObj?.tambon || [];
-  // subDistrict derived from form value logic or handled directly in onChange
 
   // Calculations
   const selectedShipping = SHIPPING_METHODS.find(m => m.id === selectedShippingId);
   const baseShippingPrice = selectedShipping?.price || 50;
 
-  // Shipping Logic: Discount 50 baht if order > 500
   const isFreeShippingEligible = checkoutSubtotal >= 500;
-  // If eligible, discount up to 50 baht (so standard becomes free, express gets discount)
-  // Use Math.min so discount doesn't exceed shipping cost (e.g. if shipping is 30, discount is 30)
-  // But our shipping starts at 50, so discount is always 50.
   const shippingDiscount = isFreeShippingEligible ? 50 : 0;
   const finalShippingPrice = Math.max(0, baseShippingPrice - shippingDiscount);
 
-  const total = checkoutSubtotal + finalShippingPrice;
+  // Calculate Coupon Discount
+  const selectedCoupon = myCoupons.find(c => c._id === selectedUserCouponId);
+  let couponDiscount = 0;
+  if (selectedCoupon) {
+    if (checkoutSubtotal >= selectedCoupon.minPurchase) {
+      if (selectedCoupon.discountType === 'percent') {
+        couponDiscount = (checkoutSubtotal * selectedCoupon.discountValue) / 100;
+      } else {
+        couponDiscount = selectedCoupon.discountValue;
+      }
+      // Cap at subtotal
+      couponDiscount = Math.min(couponDiscount, checkoutSubtotal);
+    }
+  }
+
+  const total = Math.max(0, checkoutSubtotal + finalShippingPrice - couponDiscount);
 
   const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
   const selectedPayment = PAYMENT_METHODS.find(m => m.id === selectedPaymentId);
@@ -215,7 +257,7 @@ export default function CheckoutPage() {
   };
 
   const handleEdit = (addr: Address, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent selecting the radio
+    e.stopPropagation();
     setEditingAddressId(addr.id);
     setAddressForm({ ...addr });
     setIsAddressModalOpen(true);
@@ -226,7 +268,7 @@ export default function CheckoutPage() {
     if (confirm('คุณต้องการลบที่อยู่นี้ใช่หรือไม่?')) {
       setAddresses(prev => prev.filter(a => a.id !== id));
       if (selectedAddressId === id) {
-        setSelectedAddressId(''); // Deselect if deleted
+        setSelectedAddressId('');
       }
       showToast('ลบที่อยู่เรียบร้อยแล้ว', 'success');
     }
@@ -239,7 +281,6 @@ export default function CheckoutPage() {
         ...a,
         isDefault: a.id === id
       }));
-      // Sort default to top
       return updated.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
     });
     showToast('ตั้งเป็นที่อยู่หลักเรียบร้อยแล้ว', 'success');
@@ -253,7 +294,6 @@ export default function CheckoutPage() {
     }
 
     if (editingAddressId) {
-      // Edit existing
       setAddresses(prev => prev.map(a =>
         a.id === editingAddressId
           ? { ...a, ...addressForm } as Address
@@ -261,7 +301,6 @@ export default function CheckoutPage() {
       ));
       showToast('แก้ไขที่อยู่เรียบร้อยแล้ว', 'success');
     } else {
-      // Add new
       const newId = `addr_${Date.now()}`;
       const newAddr: Address = {
         id: newId,
@@ -272,10 +311,9 @@ export default function CheckoutPage() {
         province: addressForm.province!,
         postalCode: addressForm.postalCode!,
         phone: addressForm.phone!,
-        isDefault: addresses.length === 0 // If it's the first address, make it default
+        isDefault: addresses.length === 0
       };
 
-      // Add and Sort (if defaulted)
       setAddresses(prev => {
         const updated = [...prev, newAddr];
         return updated.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0));
@@ -325,7 +363,9 @@ export default function CheckoutPage() {
           })),
           subtotal: checkoutSubtotal,
           shipping: finalShippingPrice,
-          discount: shippingDiscount, // Record discount too
+          discount: shippingDiscount + couponDiscount, // Total discount
+          couponCode: selectedCoupon?.code,
+          couponId: selectedCoupon?._id, // Add used coupon ID
           total,
           status: 'pending_payment',
           shippingAddress: selectedAddress,
@@ -387,7 +427,6 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2">
             {/* Progress Stepper */}
             <div className="mb-8">
-              {/* Stepper logic same as before... */}
               <div className="flex justify-between items-center">
                 {(['address', 'payment', 'review'] as const).map((step, index) => (
                   <React.Fragment key={step}>
@@ -463,9 +502,7 @@ export default function CheckoutPage() {
                               </p>
                             </div>
 
-                            {/* Action Buttons */}
                             <div className="flex gap-2 opacity-50 group-hover:opacity-100 transition-opacity self-end sm:self-start">
-                              {/* Set Default */}
                               {!address.isDefault && (
                                 <button
                                   onClick={(e) => handleSetDefault(address.id, e)}
@@ -475,7 +512,6 @@ export default function CheckoutPage() {
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                                 </button>
                               )}
-                              {/* Edit */}
                               <button
                                 onClick={(e) => handleEdit(address, e)}
                                 title="แก้ไข"
@@ -483,7 +519,6 @@ export default function CheckoutPage() {
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                               </button>
-                              {/* Delete */}
                               <button
                                 onClick={(e) => handleDelete(address.id, e)}
                                 title="ลบ"
@@ -514,7 +549,6 @@ export default function CheckoutPage() {
               </Card>
             )}
 
-            {/* Other steps (payment/review) same as previous ... */}
             {currentStep === 'payment' && (
               <Card elevated={true}>
                 <div className="p-6 space-y-8">
@@ -537,7 +571,60 @@ export default function CheckoutPage() {
                       ))}
                     </div>
                   </div>
+
                   <div className="border-t border-white/[0.08]" />
+
+                  {/* === COUPON SELECTION === */}
+                  <div>
+                    <h2 className="text-2xl font-bold mb-6">คูปองส่วนลด</h2>
+                    {myCoupons.length === 0 ? (
+                      <p className="text-[rgb(var(--text-muted))]">คุณไม่มีคูปองที่ใช้ได้</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {myCoupons.map(coupon => {
+                          const isEligible = checkoutSubtotal >= coupon.minPurchase;
+                          return (
+                            <div key={coupon._id} className={`relative ${!isEligible ? 'opacity-50 grayscale' : ''}`}>
+                              <input
+                                type="radio"
+                                id={`coupon-${coupon._id}`}
+                                name="coupon"
+                                value={coupon._id}
+                                checked={selectedUserCouponId === coupon._id}
+                                onChange={() => isEligible && setSelectedUserCouponId(coupon._id)}
+                                onClick={(e) => {
+                                  if (selectedUserCouponId === coupon._id) {
+                                    e.preventDefault();
+                                    setSelectedUserCouponId('');
+                                  }
+                                }}
+                                className="sr-only"
+                                disabled={!isEligible}
+                              />
+                              <label htmlFor={`coupon-${coupon._id}`} className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedUserCouponId === coupon._id ? 'border-pink-500 bg-pink-500/10' : 'border-white/[0.08] hover:border-white/[0.16]'}`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl">🎟️</span>
+                                    <div>
+                                      <h3 className="font-bold font-mono text-lg">{coupon.code}</h3>
+                                      <p className="text-sm text-[rgb(var(--text-muted))]">{coupon.description || `ลด ${coupon.discountValue}${coupon.discountType === 'percent' ? '%' : ' บาท'}`}</p>
+                                      {!isEligible && <p className="text-xs text-red-400 mt-1">ยอดซื้อขั้นต่ำ {coupon.minPurchase} บาท</p>}
+                                    </div>
+                                  </div>
+                                  <span className="font-bold text-pink-400">
+                                    -{coupon.discountType === 'percent' ? `${coupon.discountValue}%` : `${coupon.discountValue}฿`}
+                                  </span>
+                                </div>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-white/[0.08]" />
+
                   <div>
                     <h2 className="text-2xl font-bold mb-6">วิธีชำระเงิน</h2>
                     <div className="space-y-3">
@@ -577,8 +664,25 @@ export default function CheckoutPage() {
                     )}
                   </div>
                 </Card>
-                {/* Shipping & Payment Cards (Brief) */}
+
+                {/* Coupon Review */}
+                {selectedUserCouponId && selectedCoupon && (
+                  <Card elevated={true}>
+                    <div className="p-6 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🎟️</span>
+                        <div>
+                          <h3 className="font-bold">คูปองส่วนลด</h3>
+                          <p className="text-sm text-[rgb(var(--text-muted))]">{selectedCoupon.code}</p>
+                        </div>
+                      </div>
+                      <span className="font-bold text-red-400">-{couponDiscount.toFixed(2)} บาท</span>
+                    </div>
+                  </Card>
+                )}
+
                 <Card elevated={true}><div className="p-6"><div className="flex items-center gap-3"><span className="text-2xl">{selectedShipping?.icon}</span><div><h3 className="text-lg font-bold">{selectedShipping?.name}</h3></div></div></div></Card>
+
                 <div className="pt-6 border-t border-white/[0.08] flex gap-3 justify-between">
                   <Button variant="outline" onClick={handlePrevStep} disabled={isProcessing}>ย้อนกลับ</Button>
                   <Button onClick={handleConfirmOrder} disabled={isProcessing}>{isProcessing ? 'กำลังสร้างคำสั่ง...' : 'ยืนยันคำสั่งซื้อ'}</Button>
@@ -610,6 +714,13 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-pink-400 font-medium">
+                      <span>ส่วนลดคูปอง</span>
+                      <span>-{couponDiscount.toFixed(2)} บาท</span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <span className="text-[rgb(var(--text-muted))]">ค่าจัดส่ง ({selectedShipping?.name})</span>
                     <span className="font-semibold">{baseShippingPrice} บาท</span>
@@ -635,7 +746,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Address Modal */}
       {isAddressModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
@@ -660,7 +770,6 @@ export default function CheckoutPage() {
                   value={addressForm.address || ''} onChange={e => setAddressForm({ ...addressForm, address: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {/* Province */}
                 <div className="relative">
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">จังหวัด</label>
                   <SearchableSelect
@@ -682,7 +791,6 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Amphure (District) */}
                 <div className="relative">
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">อำเภอ/เขต</label>
                   <SearchableSelect
@@ -703,7 +811,6 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Tambon (Sub-district) */}
                 <div className="relative">
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">ตำบล/แขวง</label>
                   <SearchableSelect
@@ -724,7 +831,6 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Zipcode */}
                 <div>
                   <label className="block text-sm text-[rgb(var(--text-muted))] mb-1">รหัสไปรษณีย์</label>
                   <input
@@ -734,7 +840,7 @@ export default function CheckoutPage() {
                     placeholder="XXXXX"
                     value={addressForm.postalCode || ''}
                     onChange={e => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                    readOnly // User can still edit if needed? Usually readOnly if selected by Tambon, but allow manual edit for edge cases
+                    readOnly
                   />
                 </div>
               </div>
