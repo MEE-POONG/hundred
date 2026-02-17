@@ -309,8 +309,8 @@ export default function AdminTicketsAndRewards() {
               <div>
                 <label className="text-xs text-[rgb(var(--text-muted))]">Probability (0.0 - 1.0)</label>
                 <div className="flex gap-2">
-                  <input type="number" step="0.001" min="0" max="1" value={ticketForm.probability} onChange={e => setTicketForm({ ...ticketForm, probability: parseFloat(e.target.value) })} className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-white" required />
-                  <span className="px-3 py-2 bg-white/5 rounded border border-white/10 text-white min-w-[4rem] text-center">{(ticketForm.probability * 100).toFixed(1)}%</span>
+                  <input type="number" step="0.001" min="0" max="1" value={ticketForm.probability} onChange={e => setTicketForm({ ...ticketForm, probability: parseFloat(e.target.value) || 0 })} className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-white" required />
+                  <span className="px-3 py-2 bg-white/5 rounded border border-white/10 text-white min-w-[4rem] text-center">{isNaN(ticketForm.probability) ? '0.0%' : (ticketForm.probability * 100).toFixed(1)}%</span>
                 </div>
               </div>
 

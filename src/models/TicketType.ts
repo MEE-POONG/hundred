@@ -10,10 +10,7 @@ const ticketTypeSchema = new mongoose.Schema(
             type: String,
             enum: ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'],
             required: true,
-            unique: true, // Typically one definition per rarity, or allow multiple?
-            // Actually, we might have multiple 'Common' tickets with different designs?
-            // But based on current simple system, 1 rarity = 1 type.
-            // Let's NOT make it unique for flexibility.
+            // Allow multiple tickets with same rarity for flexibility
         },
         probability: {
             type: Number,

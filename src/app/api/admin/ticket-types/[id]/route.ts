@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/db';
 import TicketType from '@/models/TicketType';
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await connectDB();
     const session = await getServerSession(authOptions);
 
@@ -13,8 +13,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     try {
+        const { id } = await params;
         const body = await req.json();
-        const updatedTicketType = await TicketType.findByIdAndUpdate(params.id, body, {
+        const updatedTicketType = await TicketType.findByIdAndUpdate(id, body, {
             new: true,
             runValidators: true,
         });
@@ -30,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await connectDB();
     const session = await getServerSession(authOptions);
 
@@ -39,7 +40,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     try {
-        const deletedTicketType = await TicketType.findByIdAndDelete(params.id);
+        const { id } = await params;
+        const deletedTicketType = await TicketType.findByIdAndDelete(id);
 
         if (!deletedTicketType) {
             return NextResponse.json({ error: 'Ticket Type not found' }, { status: 404 });

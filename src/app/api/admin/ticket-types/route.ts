@@ -84,8 +84,13 @@ export async function POST(req: NextRequest) {
 
         const newTicketType = await TicketType.create(body);
         return NextResponse.json(newTicketType, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to create ticket type:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        return NextResponse.json({
+            error: 'Internal Server Error',
+            details: error.message
+        }, { status: 500 });
     }
 }

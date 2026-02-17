@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 import Product from '../models/Product';
 import User from '../models/User';
 import Order from '../models/Order';
-import { TicketType } from '../models/Ticket';
+import TicketType from '../models/TicketType';
 
 // Import mock data
 import { products } from '../data/products';
@@ -27,7 +27,7 @@ if (!MONGODB_URI) {
 async function seedDatabase() {
     try {
         console.log('🔌 Connecting to MongoDB...');
-        await mongoose.connect(MONGODB_URI);
+        await mongoose.connect(MONGODB_URI!);
         console.log('✅ Connected to MongoDB successfully!\n');
 
         // Clear existing data
@@ -37,7 +37,7 @@ async function seedDatabase() {
         await Product.deleteMany({});
         await User.deleteMany({});
         // await Order.deleteMany({});
-        // await TicketType.deleteMany({});
+        await TicketType.deleteMany({});
         console.log('✅ Cleared existing data\n');
 
         // Seed Products
@@ -68,7 +68,6 @@ async function seedDatabase() {
         // Seed Ticket Types
         console.log('🎫 Seeding Ticket Types...');
         const ticketDocs = ticketTypes.map(t => ({
-            ticketId: t.id,
             rarity: t.rarity,
             name: t.name,
             color: t.color,

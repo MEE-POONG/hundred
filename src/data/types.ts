@@ -140,6 +140,7 @@ export interface Order {
   paidAt?: string;
   shippedAt?: string;
   deliveredAt?: string;
+  updatedAt?: string;
 }
 
 export interface OrderTimeline {

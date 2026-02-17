@@ -194,7 +194,7 @@ export default function CartPage() {
                         {item.selectedVariants && (
                           <div className="flex flex-wrap gap-2 mt-1">
                             {Object.entries(item.selectedVariants).map(([key, value]) => (
-                              <Badge key={key} variant="info" size="sm" className="text-xs">
+                              <Badge key={key} variant="info" className="text-xs">
                                 {key}: {value}
                               </Badge>
                             ))}

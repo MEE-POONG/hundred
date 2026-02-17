@@ -150,7 +150,7 @@ export default function AdminCoupons() {
                             </div>
 
                             <div>
-                                <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-3 mb-2">
                                     <h3 className="font-mono text-xl font-bold text-white tracking-wider bg-white/10 px-2 py-1 rounded inline-block">
                                         {coupon.code}
                                     </h3>
