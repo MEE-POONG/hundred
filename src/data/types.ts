@@ -124,6 +124,7 @@ export interface Address {
 }
 
 export interface Order {
+  _id?: string;
   id: string;
   orderNumber: string;
   items: CartItem[];

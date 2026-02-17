@@ -374,17 +374,32 @@ export default function OrderDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
 
-            {/* Payment Prompt */}
-            {currentStatus === 'pending_payment' && (
+            {/* Payment Prompt - QR Code (Only for non-COD) */}
+            {currentStatus === 'pending_payment' && order.paymentMethod !== 'cash-on-delivery' && (
               <Card className="p-8 border-2 border-[rgb(var(--primary))]/30 bg-gradient-to-br from-[rgb(var(--primary))]/10 to-[rgb(var(--secondary))]/5" elevated>
                 <div className="text-center">
                   <h2 className="text-2xl font-bold mb-4 text-white">ชำระเงินผ่าน QR Code</h2>
-                  {/* ... (QR Code logic same) */}
                   <div className="bg-white p-4 inline-block rounded-xl mb-6 shadow-lg">
                     <img src={qrCodeUrl} alt="PromptPay" className="w-48 h-48 object-contain" />
                   </div>
                   <div className="text-3xl font-bold text-[rgb(var(--primary))] mb-2">{formatCurrency(order.total)}</div>
                   <Button size="lg" onClick={handlePaymentConfirm} disabled={isUpdatingStatus} className="w-full md:w-auto px-12 mt-4">{isUpdatingStatus ? '⏳ กำลังแจ้ง...' : '✅ แจ้งโอนเงิน'}</Button>
+                </div>
+              </Card>
+            )}
+
+            {/* COD Instruction */}
+            {(currentStatus === 'pending_payment' || currentStatus === 'processing') && order.paymentMethod === 'cash-on-delivery' && (
+              <Card className="p-8 border-2 border-[rgb(var(--success))]/30 bg-gradient-to-br from-[rgb(var(--success))]/10 to-[rgb(var(--success))]/5" elevated>
+                <div className="text-center">
+                  <div className="text-5xl mb-4">🚚💰</div>
+                  <h2 className="text-2xl font-bold mb-2 text-white">รอชำระเงินปลายทาง</h2>
+                  <p className="text-[rgb(var(--text-muted))] mb-4">
+                    กรุณาเตรียมเงินสดจำนวน <span className="font-bold text-[rgb(var(--primary))] text-lg">{formatCurrency(order.total)}</span> ไว้ชำระกับพนักงานจัดส่ง
+                  </p>
+                  <div className="inline-block bg-black/20 px-4 py-2 rounded-lg text-sm border border-white/10">
+                    สถานะ: กำลังเตรียมจัดส่ง
+                  </div>
                 </div>
               </Card>
             )}
