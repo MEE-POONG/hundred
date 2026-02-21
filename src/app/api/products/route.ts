@@ -35,7 +35,10 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Auto-generate slug from name
-    let slug = body.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    // Auto-generate slug from name, allowing Thai characters
+    let slug = body.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0E00-\u0E7F-]+/g, '');
+    if (!slug) slug = `product-${Date.now()}`; // Fallback if slug is completely empty
+
     // Check if slug exists, append random if needed (simple check)
     const existing = await Product.findOne({ slug });
     if (existing) {
@@ -55,7 +58,8 @@ export async function POST(request: Request) {
 
     const product = await Product.create(productData);
     return NextResponse.json(product, { status: 201 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Failed to create product POST error:', error, error?.stack);
+    return NextResponse.json({ error: 'Failed to create product', details: error?.message || String(error) }, { status: 500 });
   }
 }
