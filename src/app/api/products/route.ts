@@ -48,9 +48,10 @@ export async function POST(request: Request) {
     const productData = {
       ...body,
       slug,
-      categoryName: body.category === 'weight-loss' ? 'ลดน้ำหนัก' :
+      categoryName: body.categoryName || (body.category === 'weight-loss' ? 'ลดน้ำหนัก' :
         body.category === 'skin-care' ? 'บำรุงผิว' :
-          body.category === 'fitness' ? 'ฟิตเนส' : 'สุขภาพ', // Simple mapping
+          body.category === 'fitness' ? 'ฟิตเนส' :
+            body.category === 'health' ? 'สุขภาพ' : body.category),
       shortDescription: body.description?.substring(0, 100) || '',
       rating: 0,
       reviewCount: 0,

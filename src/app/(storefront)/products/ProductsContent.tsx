@@ -41,6 +41,21 @@ export default function ProductsContent() {
     fetchProducts();
   }, []);
 
+  // Extract dynamic categories from products
+  const dynamicCategories = useMemo(() => {
+    const defaultIds = categories.map(c => c.slug);
+    const customCats = products
+      .filter(p => p.category && p.categoryName && !defaultIds.includes(p.category))
+      .map(p => ({
+        id: p.category,
+        slug: p.category,
+        name: p.categoryName,
+        icon: '🏷️' // Default icon for custom
+      }));
+    const uniqueCustomCats = Array.from(new Map(customCats.map(item => [item.slug, item])).values());
+    return [...categories, ...uniqueCustomCats];
+  }, [products]);
+
   const filteredProducts = useMemo(() => {
     let filtered = [...products].filter(product => {
       const nameMatch = product.name?.toLowerCase().includes(search.toLowerCase()) || false;
@@ -119,7 +134,7 @@ export default function ProductsContent() {
                   />
                   <span className="text-sm">ทั้งหมด</span>
                 </label>
-                {categories.map(cat => (
+                {dynamicCategories.map(cat => (
                   <label key={cat.id} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
@@ -226,7 +241,7 @@ export default function ProductsContent() {
                   >
                     ทั้งหมด
                   </button>
-                  {categories.map(cat => (
+                  {dynamicCategories.map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.slug)}

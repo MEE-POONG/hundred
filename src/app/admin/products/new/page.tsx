@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -22,8 +22,25 @@ export default function NewProductPage() {
     sizes: [] as string[],
     isAvailable: true,
   });
+  const [customCategoryName, setCustomCategoryName] = useState('');
+  const [existingCategories, setExistingCategories] = useState<{ slug: string, name: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        const custom = data
+          .filter((p: any) => p.category && p.categoryName && !['weight-loss', 'skin-care', 'fitness', 'health'].includes(p.category))
+          .map((p: any) => ({ slug: p.category, name: p.categoryName }));
+
+        // Ensure unique
+        const unique = Array.from(new Map(custom.map((item: any) => [item.slug, item])).values()) as any;
+        setExistingCategories(unique);
+      })
+      .catch(err => console.error('Failed to load categories', err));
+  }, []);
 
   // Temporary state for tag inputs
   const [flavorInput, setFlavorInput] = useState('');
@@ -121,6 +138,10 @@ export default function NewProductPage() {
       // Process Ingredients (split by newline)
       const ingredientsList = formData.ingredients.split('\n').map(s => s.trim()).filter(Boolean);
 
+      // Handle custom category
+      let finalCategorySlug = formData.category;
+      let finalCategoryName = existingCategories.find(c => c.slug === finalCategorySlug)?.name;
+
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,7 +152,8 @@ export default function NewProductPage() {
           price: Number(formData.price),
           salePrice: formData.salePrice ? Number(formData.salePrice) : undefined,
           stock: Number(formData.stock),
-          category: formData.category,
+          category: finalCategorySlug,
+          categoryName: finalCategoryName,
           isFeatured: formData.featured,
           isOnSale: formData.onSale,
           images: formData.images,
@@ -213,13 +235,55 @@ export default function NewProductPage() {
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                  className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white mb-2 focus:outline-none focus:border-[rgb(var(--primary))]"
                 >
                   <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
                   <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
                   <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
                   <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
+                  {existingCategories.map(cat => (
+                    <option key={cat.slug} value={cat.slug} className="bg-[rgb(var(--surface))]">{cat.name}</option>
+                  ))}
                 </select>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customCategoryName}
+                    onChange={(e) => setCustomCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (customCategoryName.trim()) {
+                          const newSlug = customCategoryName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0E00-\u0E7F-]+/g, '') || `custom-${Date.now()}`;
+                          if (!existingCategories.some(c => c.slug === newSlug)) {
+                            setExistingCategories([...existingCategories, { slug: newSlug, name: customCategoryName.trim() }]);
+                          }
+                          setFormData({ ...formData, category: newSlug });
+                          setCustomCategoryName('');
+                        }
+                      }
+                    }}
+                    placeholder="พิมพ์เพิ่มหมวดหมู่ใหม่..."
+                    className="flex-1 px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:border-[rgb(var(--primary))]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customCategoryName.trim()) {
+                        const newSlug = customCategoryName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0E00-\u0E7F-]+/g, '') || `custom-${Date.now()}`;
+                        if (!existingCategories.some(c => c.slug === newSlug)) {
+                          setExistingCategories([...existingCategories, { slug: newSlug, name: customCategoryName.trim() }]);
+                        }
+                        setFormData({ ...formData, category: newSlug });
+                        setCustomCategoryName('');
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors whitespace-nowrap"
+                  >
+                    + เพิ่ม
+                  </button>
+                </div>
               </div>
             </div>
 
