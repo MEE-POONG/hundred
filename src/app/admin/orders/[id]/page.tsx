@@ -238,6 +238,26 @@ export default function AdminOrderDetailPage() {
             </div>
           </div>
 
+          {/* Payment Slip */}
+          {order.paymentSlip && (
+            <div className="card-surface p-6">
+              <h2 className="text-lg font-bold text-white mb-4">หลักฐานการชำระเงิน</h2>
+              <div className="relative group cursor-pointer" onClick={() => window.open(order.paymentSlip, '_blank')}>
+                <img
+                  src={order.paymentSlip}
+                  alt="Payment Slip"
+                  className="w-full rounded-lg border border-white/10 hover:border-[rgb(var(--primary))] transition-all"
+                />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                  <span className="text-white text-sm font-medium">คลิกเพื่อดูรูปขยาย</span>
+                </div>
+              </div>
+              <p className="text-xs text-[rgb(var(--text-muted))] mt-3 text-center">
+                อัปโหลดเมื่อ {new Date(order.paidAt || order.updatedAt).toLocaleDateString('th-TH', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          )}
+
           {/* Status Change */}
           <div className="card-surface p-6">
             <h2 className="text-lg font-bold text-white mb-4">เปลี่ยนสถานะ</h2>

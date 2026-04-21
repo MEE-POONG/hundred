@@ -38,6 +38,7 @@ const OrderSchema = new Schema({
   paymentMethod: String,
   shippingMethod: String,
   trackingNumber: String,
+  paymentSlip: String,
   paidAt: Date,
   shippedAt: Date,
   deliveredAt: Date,

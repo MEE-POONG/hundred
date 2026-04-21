@@ -63,10 +63,12 @@ export async function PUT(
             return NextResponse.json({ error: 'ไม่มีสิทธิ์แก้ไข' }, { status: 403 });
         }
 
-        // For user: only allow status update to 'paid' (simulation) if pending
+        // For user: allow status update to 'paid' (if pending) or 'delivered' (if shipped)
         if (role !== 'admin') {
             if (order.status === 'pending_payment' && body.status === 'paid') {
                 // Allow user to mark as paid
+            } else if (order.status === 'shipped' && body.status === 'delivered') {
+                // Allow user to confirm receipt
             } else {
                 return NextResponse.json({ error: 'ไม่สามารถเปลี่ยนสถานะนี้ได้' }, { status: 403 });
             }
@@ -76,7 +78,8 @@ export async function PUT(
             id,
             {
                 status: body.status,
-                ...(body.status === 'paid' ? { paidAt: new Date() } : {})
+                ...(body.status === 'paid' ? { paidAt: new Date() } : {}),
+                ...(body.status === 'delivered' ? { deliveredAt: new Date() } : {})
             },
             { new: true }
         );

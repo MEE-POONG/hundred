@@ -18,6 +18,13 @@ const StoreSettingsSchema = new Schema({
         icon: { type: String },
         enabled: { type: Boolean, default: true }
     }],
+    bankAccounts: [{
+        bankName: { type: String },
+        accountName: { type: String },
+        accountNumber: { type: String },
+        enabled: { type: Boolean, default: true }
+    }],
+    promptPayId: { type: String, default: '' },
     shippingMethods: [{
         name: { type: String },
         icon: { type: String },

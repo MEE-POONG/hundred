@@ -10,7 +10,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
-    if (!session?.user || (session.user as any).role !== 'admin') {
+    if (!session?.user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
             contentType: file.type,
             data: buffer,
             size: file.size,
-            uploadedBy: (session.user as any).email || 'admin',
+            uploadedBy: (session.user as any).email || 'anonymous',
         });
 
         // Return a URL that points to our image serving API

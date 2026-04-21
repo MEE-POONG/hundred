@@ -194,6 +194,33 @@ export default function OrderDetailPage() {
     }
   };
 
+  const handleConfirmReceipt = async () => {
+    if (!confirm('คุณได้รับสินค้าเรียบร้อยแล้วใช่หรือไม่?')) return;
+    setIsUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'delivered' }),
+      });
+      if (res.ok) {
+        showToast('ยืนยันการรับสินค้าสำเร็จ! ขอบคุณที่อุดหนุนครับ', 'success');
+        const updatedOrder = await res.json();
+        setOrder(updatedOrder);
+        setCurrentStatus('delivered');
+        fetchPendingReviews(); // Refresh reviews list
+      } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to update', 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Error updating status', 'error');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const handleReviewSuccess = () => {
     setSelectedReviewItem(null);
     fetchPendingReviews(); // Refresh list to remove button
@@ -404,6 +431,27 @@ export default function OrderDetailPage() {
               </Card>
             )}
 
+            {/* Shipped Status - Confirm Receipt Button */}
+            {currentStatus === 'shipped' && (
+              <Card className="p-8 border-2 border-[rgb(var(--primary))]/30 bg-gradient-to-br from-[rgb(var(--primary))]/10 to-[rgb(var(--secondary))]/5" elevated>
+                <div className="text-center">
+                  <div className="text-5xl mb-4">🚚</div>
+                  <h2 className="text-2xl font-bold mb-2 text-white">สินค้ากำลังเดินทาง</h2>
+                  <p className="text-[rgb(var(--text-muted))] mb-6">
+                    หากคุณได้รับสินค้าและตรวจสอบความเรียบร้อยแล้ว กรุณากดยืนยันการรับสินค้า
+                  </p>
+                  <Button 
+                    size="lg" 
+                    onClick={handleConfirmReceipt} 
+                    disabled={isUpdatingStatus} 
+                    className="w-full md:w-auto px-12 glow-pink"
+                  >
+                    {isUpdatingStatus ? '⏳ กำลังบันทึก...' : '📦 ยืนยันได้รับสินค้าแล้ว'}
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             {/* Items List - MODIFIED with Review Button */}
             <Card className="p-6 md:p-8" elevated>
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -439,7 +487,7 @@ export default function OrderDetailPage() {
                                 className="h-8 text-xs border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
                                 onClick={() => setSelectedReviewItem({
                                   productId: item.productId,
-                                  orderId: order._id,
+                                  orderId: order._id || order.id,
                                   name: item.productName,
                                   image: item.productImage
                                 })}

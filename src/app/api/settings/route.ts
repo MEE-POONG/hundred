@@ -18,8 +18,35 @@ export async function GET() {
                 email: 'support@supplementshop.com',
                 address: '123/45 สยามสแควร์ ถนนราชดำเนิน กรุงเทพ',
                 businessHours: '09:00 - 22:00',
-                logo: 'https://ui-avatars.com/api/?name=Shop&background=FF4D9D&color=fff&size=128', // Default logo
+                logo: 'https://ui-avatars.com/api/?name=Shop&background=FF4D9D&color=fff&size=128',
+                bankAccounts: [
+                    { bankName: 'กสิกรไทย (KBANK)', accountName: 'บริษัท here co-op', accountNumber: '672-6-32999-0', enabled: true }
+                ],
+                promptPayId: '67263299990',
+                paymentMethods: [
+                    { name: 'promptpay', icon: '📱', enabled: true },
+                    { name: 'bank_transfer', icon: '🏦', enabled: true }
+                ]
             });
+        } else {
+            // Auto-patch existing settings if new fields are missing
+            let updated = false;
+            if (!settings.bankAccounts || settings.bankAccounts.length === 0) {
+                settings.bankAccounts = [{ bankName: 'กสิกรไทย (KBANK)', accountName: 'บริษัท here co-op', accountNumber: '672-6-32999-0', enabled: true }];
+                updated = true;
+            }
+            if (!settings.promptPayId) {
+                settings.promptPayId = '67263299990';
+                updated = true;
+            }
+            if (!settings.paymentMethods || settings.paymentMethods.length === 0) {
+                settings.paymentMethods = [
+                    { name: 'promptpay', icon: '📱', enabled: true },
+                    { name: 'bank_transfer', icon: '🏦', enabled: true }
+                ];
+                updated = true;
+            }
+            if (updated) await settings.save();
         }
         return NextResponse.json(settings);
     } catch (error) {

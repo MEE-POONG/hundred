@@ -42,6 +42,7 @@ export async function POST(request: Request) {
             password: hashedPassword,
             role: 'user',
             provider: 'credentials',
+            emailVerified: new Date(), // Mark as verified immediately
         });
 
         return NextResponse.json(

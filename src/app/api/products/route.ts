@@ -24,8 +24,9 @@ export async function GET(request: Request) {
     }));
 
     return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+  } catch (error: any) {
+    console.error('Fetch products error:', error);
+    return NextResponse.json({ error: 'Failed to fetch products', details: error?.message }, { status: 500 });
   }
 }
 

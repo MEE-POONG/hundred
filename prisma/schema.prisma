@@ -1,0 +1,333 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+
+type OrdersItems {
+  id               String                       @map("_id") @db.ObjectId
+  price            Int
+  productId        String
+  productImage     String
+  productName      String
+  quantity         Int
+  salePrice        Int?
+  selectedVariants OrdersItemsSelectedVariants?
+}
+
+type OrdersItemsSelectedVariants {
+  size   String? @map("ขนาด")
+  flavor String? @map("รสชาติ")
+}
+
+
+type OrdersShippingAddress {
+  id          String  @map("_id") @db.ObjectId
+  address     String
+  district    String
+  name        String
+  phone       String
+  postalCode  String
+  province    String
+  subDistrict String?
+}
+
+type ProductsRedeemable {
+  id              String                              @map("_id") @db.ObjectId
+  productId       String
+  requiredTickets ProductsRedeemableRequiredTickets[]
+}
+
+type ProductsRedeemableRequiredTickets {
+  id       String @map("_id") @db.ObjectId
+  quantity Int
+  rarity   String
+  ticketId String
+}
+
+type ProductsVariants {
+  id            String   @map("_id") @db.ObjectId
+  id_           String   @map("id")
+  name          String
+  options       String[]
+  priceModifier Int?
+  type          String
+}
+
+type RedemptionsShippingAddress {
+  address String
+  name    String
+  phone   String
+}
+
+type RedemptionsTicketsUsed {
+  id       String @map("_id") @db.ObjectId
+  quantity Int
+  rarity   String
+}
+
+type RewardsTicketCost {
+  common    Int
+  epic      Int
+  legendary Int
+  rare      Int
+}
+
+type StoresettingsSocials {
+  facebook  String
+  instagram String
+  line      String
+}
+
+type UserAddress {
+  label          String
+  receiverName   String
+  receiverPhone  String
+  address        String
+  subDistrict    String
+  district       String
+  province       String
+  postalCode     String
+  isDefault      Boolean @default(false)
+}
+
+model config {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+}
+
+model coupons {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  v              Int      @map("__v")
+  code           String   @unique(map: "code_1")
+  createdAt      DateTime @db.Date
+  description    String
+  discountType   String
+  discountValue  Int
+  expirationDate DateTime @db.Date
+  isActive       Boolean
+  minPurchase    Int
+  updatedAt      DateTime @db.Date
+  usageLimit     Int
+  usedCount      Int
+}
+
+model images {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  v           Int      @map("__v")
+  contentType String
+  createdAt   DateTime @db.Date
+  data        Bytes
+  filename    String
+  size        Int
+  updatedAt   DateTime @db.Date
+  uploadedBy  String
+}
+
+model inventories {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  v         Int      @map("__v")
+  createdAt DateTime @db.Date
+  itemId    String
+  itemType  String
+  quantity  Int
+  rarity    String
+  updatedAt DateTime @db.Date
+  user      String   @db.ObjectId
+
+  @@unique([user, itemId], map: "user_1_itemId_1")
+}
+
+model orders {
+  id              String                @id @default(auto()) @map("_id") @db.ObjectId
+  v               Int                   @map("__v")
+  createdAt       DateTime              @db.Date
+  deliveredAt     DateTime?             @db.Date
+  discount        Int
+  items           OrdersItems[]
+  orderNumber     String                @unique(map: "orderNumber_1")
+  paidAt          DateTime?             @db.Date
+  paymentMethod   String
+  shippedAt       DateTime?             @db.Date
+  shipping        Int
+  shippingAddress OrdersShippingAddress
+  shippingMethod  String
+  status          String
+  subtotal        Int
+  total           Int
+  trackingNumber  String?
+  updatedAt       DateTime              @db.Date
+  user            String?               @db.ObjectId
+}
+
+model products {
+  id               String              @id @default(auto()) @map("_id") @db.ObjectId
+  v                Int                 @map("__v")
+  category         String
+  categoryName     String
+  createdAt        DateTime            @db.Date
+  description      String
+  directions       String?
+  fda              String?
+  images           String[]
+  ingredients      String[]
+  isAvailable      Boolean
+  isFeatured       Boolean
+  isOnSale         Boolean
+  name             String
+  price            Int
+  /// Multiple data types found: Float: 81.8%, Int: 18.2% out of 11 sampled entries
+  rating           Json
+  redeemable       ProductsRedeemable?
+  reviewCount      Int
+  salePrice        Int?
+  shortDescription String
+  slug             String              @unique(map: "slug_1")
+  stock            Int
+  updatedAt        DateTime            @db.Date
+  variants         ProductsVariants[]
+  warnings         String[]
+}
+
+model redemptions {
+  id              String                     @id @default(auto()) @map("_id") @db.ObjectId
+  v               Int                        @map("__v")
+  approvedAt      DateTime                   @db.Date
+  completedAt     DateTime?                  @db.Date
+  createdAt       DateTime                   @db.Date
+  productImage    String
+  productName     String
+  rejectedReason  String
+  shippedAt       DateTime                   @db.Date
+  shippingAddress RedemptionsShippingAddress
+  status          String
+  ticketsUsed     RedemptionsTicketsUsed[]
+  trackingNumber  String
+  updatedAt       DateTime                   @db.Date
+  user            String                     @db.ObjectId
+}
+
+model reviews {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  v           Int      @map("__v")
+  comment     String
+  createdAt   DateTime @db.Date
+  images      String[]
+  isPublished Boolean
+  order       String   @db.ObjectId
+  product     String   @db.ObjectId
+  rating      Int
+  updatedAt   DateTime @db.Date
+  user        String   @db.ObjectId
+
+  @@unique([user, product, order], map: "user_1_product_1_order_1")
+}
+
+model rewards {
+  id           String            @id @default(auto()) @map("_id") @db.ObjectId
+  v            Int               @map("__v")
+  createdAt    DateTime          @db.Date
+  description  String
+  image        String
+  isActive     Boolean
+  isRedeemable Boolean
+  name         String
+  probability  Int
+  rarity       String
+  stock        Int
+  ticketCost   RewardsTicketCost
+  type         String
+  updatedAt    DateTime          @db.Date
+}
+
+model stockmovements {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+}
+
+model storesettings {
+  id              String               @id @default(auto()) @map("_id") @db.ObjectId
+  v               Int                  @map("__v")
+  address         String
+  businessHours   String
+  createdAt       DateTime             @db.Date
+  description     String
+  email           String
+  logo            String
+  name            String
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  paymentMethods  Json?
+  phone           String
+  /// Could not determine type: the field only had null or empty values in the sample set.
+  shippingMethods Json?
+  socials         StoresettingsSocials
+  updatedAt       DateTime             @db.Date
+}
+
+model tickets {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  v         Int       @map("__v")
+  code      String    @unique(map: "code_1")
+  createdAt DateTime  @db.Date
+  rarity    String?
+  source    String
+  status    String
+  updatedAt DateTime  @db.Date
+  usedAt    DateTime? @db.Date
+  user      String    @db.ObjectId
+}
+
+model tickettypes {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  v           Int      @map("__v")
+  color       String
+  createdAt   DateTime @db.Date
+  description String?
+  glowColor   String
+  icon        String
+  isActive    Boolean
+  name        String
+  /// Multiple data types found: Float: 80%, Int: 20% out of 5 sampled entries
+  probability Json
+  rarity      String
+  updatedAt   DateTime @db.Date
+}
+
+model usercoupons {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  v           Int       @map("__v")
+  collectedAt DateTime  @db.Date
+  coupon      String    @db.ObjectId
+  createdAt   DateTime  @db.Date
+  isUsed      Boolean
+  orderId     String?   @db.ObjectId
+  updatedAt   DateTime  @db.Date
+  usedAt      DateTime? @db.Date
+  user        String    @db.ObjectId
+
+  @@unique([user, coupon], map: "user_1_coupon_1")
+}
+
+model users {
+  id               String        @id @default(auto()) @map("_id") @db.ObjectId
+  v                Int?          @map("__v")
+  createdAt        DateTime      @default(now()) @db.Date
+  updatedAt        DateTime      @updatedAt @db.Date
+  email            String        @unique(map: "email_1")
+  image            String?
+  name             String
+  firstName        String?
+  lastName         String?
+  password         String
+  phone            String?
+  gender           String?
+  birthDate        DateTime?     @db.Date
+  provider         String        @default("credentials")
+  role             String        @default("user")
+  addresses        UserAddress[]
+  points           Int           @default(0)
+  membershipTier   String        @default("Member")
+  emailVerified    DateTime?
+}

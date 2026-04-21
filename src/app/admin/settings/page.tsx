@@ -11,6 +11,10 @@ interface StoreSettingsData {
   email: string;
   address: string;
   businessHours: string;
+  paymentMethods: { name: string; icon: string; enabled: boolean }[];
+  shippingMethods: { name: string; icon: string; enabled: boolean }[];
+  bankAccounts: { bankName: string; accountName: string; accountNumber: string; enabled: boolean }[];
+  promptPayId: string;
 }
 
 export default function AdminSettings() {
@@ -22,6 +26,10 @@ export default function AdminSettings() {
     address: '',
     businessHours: '',
     logo: '',
+    paymentMethods: [],
+    shippingMethods: [],
+    bankAccounts: [],
+    promptPayId: '',
   });
 
   const [theme, setTheme] = useState('dark');
@@ -232,22 +240,169 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Payment Settings */}
           <div className="card-surface p-8">
-            <h2 className="text-xl font-bold text-white mb-6">วิธีการชำระเงิน</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white">วิธีการชำระเงิน</h2>
+            </div>
 
-            <div className="space-y-4">
-              {[
-                { name: 'พร้อมเพย์', icon: '💳' },
-                { name: 'บัตรเครดิต', icon: '🏦' },
-                { name: 'โอนเงิน', icon: '🔄' },
-              ].map((payment, idx) => (
-                <label key={idx} className="flex items-center gap-3 p-4 bg-white/5 border border-white/[0.08] rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 rounded accent-pink-500" suppressHydrationWarning />
-                  <span className="text-lg">{payment.icon}</span>
-                  <span className="text-white font-medium">{payment.name}</span>
-                </label>
-              ))}
+            <div className="space-y-6">
+              {/* PromptPay Setting */}
+              <div className="p-4 bg-white/5 border border-white/[0.08] rounded-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-2xl">💳</span>
+                  <h3 className="text-white font-medium">ตั้งค่าพร้อมเพย์ (PromptPay)</h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-[rgb(var(--text-muted))] block mb-1">หมายเลขบัตรประชาชน หรือเบอร์โทรศัพท์ (สำหรับสร้าง QR Code)</label>
+                    <input
+                      type="text"
+                      value={storeData.promptPayId}
+                      onChange={(e) => handleStoreChange('promptPayId', e.target.value)}
+                      placeholder="0812345678"
+                      className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bank Accounts */}
+              <div className="p-4 bg-white/5 border border-white/[0.08] rounded-xl">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🏦</span>
+                    <h3 className="text-white font-medium">บัญชีธนาคารสำหรับโอนเงิน</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newBankAccounts = [...(storeData.bankAccounts || []), { bankName: '', accountName: '', accountNumber: '', enabled: true }];
+                      setStoreData({ ...storeData, bankAccounts: newBankAccounts });
+                    }}
+                    className="text-sm text-[rgb(var(--primary))] hover:underline"
+                  >
+                    + เพิ่มบัญชี
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {storeData.bankAccounts?.map((bank, idx) => (
+                    <div key={idx} className="p-4 bg-black/20 border border-white/[0.05] rounded-lg space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-xs text-[rgb(var(--text-muted))] block mb-1">ชื่อธนาคาร</label>
+                          <input
+                            type="text"
+                            value={bank.bankName}
+                            onChange={(e) => {
+                              const newBanks = [...storeData.bankAccounts];
+                              newBanks[idx].bankName = e.target.value;
+                              setStoreData({ ...storeData, bankAccounts: newBanks });
+                            }}
+                            placeholder="กสิกรไทย, ไทยพาณิชย์..."
+                            className="w-full px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded text-sm text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-[rgb(var(--text-muted))] block mb-1">ชื่อบัญชี</label>
+                          <input
+                            type="text"
+                            value={bank.accountName}
+                            onChange={(e) => {
+                              const newBanks = [...storeData.bankAccounts];
+                              newBanks[idx].accountName = e.target.value;
+                              setStoreData({ ...storeData, bankAccounts: newBanks });
+                            }}
+                            placeholder="นายสมชาย มั่งคั่ง"
+                            className="w-full px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded text-sm text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-[rgb(var(--text-muted))] block mb-1">เลขบัญชี</label>
+                          <input
+                            type="text"
+                            value={bank.accountNumber}
+                            onChange={(e) => {
+                              const newBanks = [...storeData.bankAccounts];
+                              newBanks[idx].accountNumber = e.target.value;
+                              setStoreData({ ...storeData, bankAccounts: newBanks });
+                            }}
+                            placeholder="012-3-45678-9"
+                            className="w-full px-3 py-1.5 bg-white/5 border border-white/[0.08] rounded text-sm text-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center pt-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={bank.enabled}
+                            onChange={(e) => {
+                              const newBanks = [...storeData.bankAccounts];
+                              newBanks[idx].enabled = e.target.checked;
+                              setStoreData({ ...storeData, bankAccounts: newBanks });
+                            }}
+                            className="w-4 h-4 accent-[rgb(var(--primary))]"
+                          />
+                          <span className="text-xs text-white">แสดงในหน้าชำระเงิน</span>
+                        </label>
+                        <button
+                          onClick={() => {
+                            const newBanks = storeData.bankAccounts.filter((_, i) => i !== idx);
+                            setStoreData({ ...storeData, bankAccounts: newBanks });
+                          }}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          ลบบัญชี
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {(!storeData.bankAccounts || storeData.bankAccounts.length === 0) && (
+                    <p className="text-center text-sm text-[rgb(var(--text-muted))] py-4 italic">ยังไม่มีบัญชีธนาคาร</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Methods Checkboxes */}
+              <div className="p-4 bg-white/5 border border-white/[0.08] rounded-xl">
+                <h3 className="text-white font-medium mb-4">เปิด/ปิด ช่องทางการชำระเงิน</h3>
+                <div className="space-y-4">
+                  {[
+                    { id: 'promptpay', name: 'พร้อมเพย์ (PromptPay QR)', icon: '📱' },
+                    { id: 'bank_transfer', name: 'โอนผ่านบัญชีธนาคาร', icon: '🏦' },
+                    { id: 'credit_card', name: 'บัตรเครดิต/เดบิต', icon: '💳', disabled: true },
+                  ].map((payment, idx) => {
+                    // This section currently has simplified handling as requested
+                    const isEnabled = storeData.paymentMethods?.find(p => p.name === payment.id)?.enabled ?? (payment.id !== 'credit_card');
+                    return (
+                      <label key={idx} className={`flex items-center gap-3 p-4 bg-white/5 border border-white/[0.08] rounded-lg cursor-pointer hover:bg-white/10 transition-colors ${payment.disabled ? 'opacity-50' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          disabled={payment.disabled}
+                          onChange={(e) => {
+                            const currentMethods = storeData.paymentMethods || [];
+                            const exists = currentMethods.find(p => p.name === payment.id);
+                            let newMethods;
+                            if (exists) {
+                              newMethods = currentMethods.map(p => p.name === payment.id ? { ...p, enabled: e.target.checked } : p);
+                            } else {
+                              newMethods = [...currentMethods, { name: payment.id, icon: payment.icon, enabled: e.target.checked }];
+                            }
+                            setStoreData({ ...storeData, paymentMethods: newMethods });
+                          }}
+                          className="w-4 h-4 rounded accent-pink-500"
+                        />
+                        <span className="text-lg">{payment.icon}</span>
+                        <div className="flex-1">
+                          <span className="text-white font-medium block">{payment.name}</span>
+                          {payment.disabled && <span className="text-[10px] text-yellow-500">ยังไม่เปิดใช้งาน (เร็วๆ นี้)</span>}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 

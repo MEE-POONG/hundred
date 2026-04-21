@@ -1,0 +1,6 @@
+Loaded Prisma config from prisma.config.ts.
+
+Error: Prisma Studio is not supported for the "mongodb+srv" protocol.
+    at e.parse (C:\Users\Plean\Desktop\MT-Work\hundred\node_modules\prisma\build\index.js:4826:584)
+    at e.parse (C:\Users\Plean\Desktop\MT-Work\hundred\node_modules\prisma\build\index.js:1060:2327)
+    at qir (C:\Users\Plean\Desktop\MT-Work\hundred\node_modules\prisma\build\index.js:4931:144)
