@@ -36,6 +36,7 @@ export async function GET() {
             _id: uc._id, // UserCoupon ID (to use for redemption reference)
             couponId: uc.coupon._id,
             code: uc.coupon.code,
+            type: uc.coupon.type || 'discount',
             description: uc.coupon.description,
             discountType: uc.coupon.discountType,
             discountValue: uc.coupon.discountValue,

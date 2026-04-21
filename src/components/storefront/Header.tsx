@@ -23,6 +23,9 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-4 lg:gap-6">
+             <Link href="/" className="text-sm lg:text-base text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors whitespace-nowrap">
+              หน้าแรก
+            </Link>
             <Link href="/products" className="text-sm lg:text-base text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] transition-colors whitespace-nowrap">
               สินค้า
             </Link>
@@ -108,6 +111,9 @@ export default function Header() {
         {mobileMenuOpen && (
           <div className="md:hidden py-3 sm:py-4 border-t border-white/[0.08] animate-scale-in">
             <nav className="flex flex-col gap-1">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] hover:bg-white/5 transition-colors">
+                หน้าแรก
+              </Link>
               <Link href="/products" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2.5 rounded-xl text-sm text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))] hover:bg-white/5 transition-colors">
                 🛍️ สินค้า
               </Link>

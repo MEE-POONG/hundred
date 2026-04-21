@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 
 const adminMenuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/admin/products', label: 'Products', icon: '📦' },
+  { href: '/admin/categories', label: 'Categories', icon: '📁' },
   { href: '/admin/coupons', label: 'Coupons', icon: '🏷️' },
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
   { href: '/admin/inventory', label: 'Inventory', icon: '📦' },
@@ -25,11 +26,30 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false); // New state for mobile
   const [searchQuery, setSearchQuery] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // Security check: Only allow admins
+  useEffect(() => {
+    // Only proceed if not loading
+    if (status === 'loading') return;
+    
+    // Explicitly check for unauthenticated status or non-admin role
+    const isUnauthenticated = status === 'unauthenticated';
+    const userRole = (session?.user as any)?.role?.toLowerCase();
+    const isNotAdmin = status === 'authenticated' && userRole !== 'admin';
+
+    if (isUnauthenticated || isNotAdmin) {
+      if (pathname !== '/admin/login' && !pathname.startsWith('/auth/')) {
+        console.log('Security check failed, redirecting to login.', { status, role: userRole });
+        router.push('/auth/login');
+      }
+    }
+  }, [session, status, pathname, router]);
 
   // Close notification dropdown on outside click
   useEffect(() => {
@@ -128,6 +148,16 @@ export default function AdminLayout({
               </Link>
             );
           })}
+          
+          <div className="pt-4 mt-4 border-t border-white/[0.08]">
+            <Link
+              href="/"
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-blue-400 hover:bg-white/5 transition-colors`}
+            >
+              <span className="text-xl">🏠</span>
+              <span className={`text-sm font-medium ${!sidebarOpen ? 'lg:hidden' : ''}`}>Back to Website</span>
+            </Link>
+          </div>
         </nav>
       </aside>
 
@@ -193,7 +223,7 @@ export default function AdminLayout({
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full"
               />
               <button
-                onClick={() => signOut({ callbackUrl: '/admin/login' })}
+                onClick={() => signOut({ callbackUrl: '/auth/login' })}
                 className="ml-2 p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors hidden sm:block"
                 title="ออกจากระบบ"
               >

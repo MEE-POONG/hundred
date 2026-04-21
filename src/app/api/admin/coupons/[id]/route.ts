@@ -17,7 +17,7 @@ export async function PUT(
         }
 
         const body = await req.json();
-        const { code, description, discountType, discountValue, minPurchase, expirationDate, usageLimit, isActive } = body;
+        const { code, type, description, discountType, discountValue, minPurchase, expirationDate, usageLimit, isActive } = body;
 
         await connectDB();
         const coupon = await Coupon.findById(id);
@@ -25,6 +25,7 @@ export async function PUT(
         if (!coupon) return NextResponse.json({ error: 'Not Found' }, { status: 404 });
 
         if (code) coupon.code = code.toUpperCase();
+        if (type) coupon.type = type;
         if (description !== undefined) coupon.description = description;
         if (discountType) coupon.discountType = discountType;
         if (discountValue !== undefined) coupon.discountValue = Number(discountValue);

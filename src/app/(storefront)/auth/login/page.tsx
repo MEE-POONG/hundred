@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import React, { useState, useEffect } from 'react';
+import { signIn, useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
@@ -9,11 +9,24 @@ import Card from '@/components/ui/Card';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto redirect if already logged in
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      const userRole = (session.user as any)?.role?.toLowerCase();
+      if (userRole === 'admin') {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/');
+      }
+    }
+  }, [session, status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +43,9 @@ export default function LoginPage() {
       if (result?.error) {
         setError(result.error);
       } else {
-        router.push('/');
-        router.refresh();
+        // Just reload the page. The useEffect above will handle redirection
+        // once the session is fully synced after the reload.
+        window.location.reload();
       }
     } catch (err) {
       setError('เกิดข้อผิดพลาด กรุณาลองใหม่');

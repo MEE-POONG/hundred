@@ -21,8 +21,15 @@ interface ProductItem {
   isAvailable?: boolean;
 }
 
+interface CategoryItem {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
 export default function AdminProducts() {
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]); // New state for real categories
   const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +95,20 @@ export default function AdminProducts() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -104,7 +124,7 @@ export default function AdminProducts() {
     }
   };
 
-  const categories = ['all', ...new Set(products.map(p => p.category))];
+  const categoryOptions = ['all', ...categories.map(c => c.slug)];
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = filterCategory === 'all' || p.category === filterCategory;
@@ -232,6 +252,10 @@ export default function AdminProducts() {
       // Process Ingredients
       const ingredientsList = editForm.ingredients.split('\n').map(s => s.trim()).filter(Boolean);
 
+      // Find category name
+      const categoryObj = categories.find(c => c.slug === editForm.category);
+      const categoryName = categoryObj ? categoryObj.name : editForm.category;
+
       const res = await fetch(`/api/admin/products/${selectedProduct._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -243,6 +267,7 @@ export default function AdminProducts() {
           salePrice: editForm.salePrice ? Number(editForm.salePrice) : undefined,
           stock: Number(editForm.stock),
           category: editForm.category,
+          categoryName: categoryName,
           images: editForm.images,
           ingredients: ingredientsList,
           variants: variants,
@@ -326,9 +351,9 @@ export default function AdminProducts() {
           onChange={(e) => setFilterCategory(e.target.value)}
           className="px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
         >
-          {categories.map(cat => (
-            <option key={cat} value={cat} className="bg-[rgb(var(--surface))]">
-              {cat === 'all' ? 'ทั้งหมด' : cat}
+          {categoryOptions.map(catSlug => (
+            <option key={catSlug} value={catSlug} className="bg-[rgb(var(--surface))]">
+              {catSlug === 'all' ? 'ทั้งหมด' : (categories.find(c => c.slug === catSlug)?.name || catSlug)}
             </option>
           ))}
         </select>
@@ -477,10 +502,20 @@ export default function AdminProducts() {
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                       className="w-full px-4 py-2 bg-white/5 border border-white/[0.08] rounded-lg text-white focus:outline-none focus:border-[rgb(var(--primary))]"
                     >
-                      <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
-                      <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
-                      <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
-                      <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
+                      {categories.length > 0 ? (
+                        categories.map(cat => (
+                          <option key={cat._id} value={cat.slug} className="bg-[rgb(var(--surface))]">
+                            {cat.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="weight-loss" className="bg-[rgb(var(--surface))]">ลดน้ำหนัก</option>
+                          <option value="skin-care" className="bg-[rgb(var(--surface))]">บำรุงผิว</option>
+                          <option value="fitness" className="bg-[rgb(var(--surface))]">ฟิตเนส</option>
+                          <option value="health" className="bg-[rgb(var(--surface))]">สุขภาพ</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>

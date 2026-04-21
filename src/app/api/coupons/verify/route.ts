@@ -39,7 +39,9 @@ export async function POST(req: Request) {
 
         // Calculate Discount
         let discount = 0;
-        if (coupon.discountType === 'percent') {
+        if (coupon.type === 'shipping') {
+            discount = 0; // Shipping discount is handled separately in frontend/order logic
+        } else if (coupon.discountType === 'percent') {
             discount = (subtotal * coupon.discountValue) / 100;
         } else {
             discount = coupon.discountValue;
@@ -51,10 +53,11 @@ export async function POST(req: Request) {
         return NextResponse.json({
             valid: true,
             code: coupon.code,
+            type: coupon.type || 'discount',
             discountType: coupon.discountType,
             discountValue: coupon.discountValue,
             calculatedDiscount: discount,
-            message: 'Coupon applied successfully'
+            message: coupon.type === 'shipping' ? 'โค้ดส่งฟรีถูกใช้งานแล้ว' : 'คูปองถูกใช้งานแล้ว'
         });
 
     } catch (error) {

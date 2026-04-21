@@ -87,6 +87,7 @@ interface UserCoupon {
   _id: string; // UserCoupon ID
   couponId: string;
   code: string;
+  type?: 'discount' | 'shipping';
   description?: string;
   discountType: 'fixed' | 'percent';
   discountValue: number;
@@ -299,13 +300,24 @@ export default function CheckoutContent() {
   let couponDiscount = 0;
   if (selectedCouponObj) {
     if (checkoutSubtotal >= selectedCouponObj.minPurchase) {
-      if (selectedCouponObj.discountType === 'percent') {
+      if (selectedCouponObj.type === 'shipping') {
+        if (selectedCouponObj.discountValue === 0) {
+          couponDiscount = finalShippingPrice;
+        } else if (selectedCouponObj.discountType === 'percent') {
+          couponDiscount = (finalShippingPrice * selectedCouponObj.discountValue) / 100;
+        } else {
+          couponDiscount = Math.min(selectedCouponObj.discountValue, finalShippingPrice);
+        }
+      } else if (selectedCouponObj.discountType === 'percent') {
         couponDiscount = (checkoutSubtotal * selectedCouponObj.discountValue) / 100;
       } else {
         couponDiscount = selectedCouponObj.discountValue;
       }
-      // Cap at subtotal
-      couponDiscount = Math.min(couponDiscount, checkoutSubtotal);
+      // Cap at subtotal + shipping if needed, but usually just subtotal for discount coupons
+      // For shipping coupons, it's already capped at finalShippingPrice
+      if (selectedCouponObj.type !== 'shipping') {
+        couponDiscount = Math.min(couponDiscount, checkoutSubtotal);
+      }
     }
   }
 
@@ -757,15 +769,15 @@ export default function CheckoutContent() {
                               <label htmlFor={`coupon-${coupon._id}`} className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedUserCouponId === coupon._id ? 'border-pink-500 bg-pink-500/10' : 'border-white/[0.08] hover:border-white/[0.16]'}`}>
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
-                                    <span className="text-2xl">🎟️</span>
+                                    <span className="text-2xl">{coupon.type === 'shipping' ? '🚚' : '🎟️'}</span>
                                     <div>
                                       <h3 className="font-bold font-mono text-lg">{coupon.code}</h3>
-                                      <p className="text-sm text-[rgb(var(--text-muted))]">{coupon.description || `ลด ${coupon.discountValue}${coupon.discountType === 'percent' ? '%' : ' บาท'}`}</p>
+                                      <p className="text-sm text-[rgb(var(--text-muted))]">{coupon.description || (coupon.type === 'shipping' ? 'ถ้วนลดค่าจัดส่ง' : `ลด ${coupon.discountValue}${coupon.discountType === 'percent' ? '%' : ' บาท'}`)}</p>
                                       {!isEligible && <p className="text-xs text-red-400 mt-1">ยอดซื้อขั้นต่ำ {coupon.minPurchase} บาท</p>}
                                     </div>
                                   </div>
                                   <span className="font-bold text-pink-400">
-                                    -{coupon.discountType === 'percent' ? `${coupon.discountValue}%` : `${coupon.discountValue}฿`}
+                                    {coupon.type === 'shipping' ? 'ส่งฟรี' : `-${coupon.discountType === 'percent' ? `${coupon.discountValue}%` : `${coupon.discountValue}฿`}`}
                                   </span>
                                 </div>
                               </label>

@@ -29,9 +29,9 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { code, description, discountType, discountValue, minPurchase, expirationDate, usageLimit, isActive } = body;
+        const { code, type, description, discountType, discountValue, minPurchase, expirationDate, usageLimit, isActive } = body;
 
-        if (!code || discountValue === undefined) {
+        if (!code || (type !== 'shipping' && discountValue === undefined)) {
             return NextResponse.json({ error: 'Code and Discount Value are required' }, { status: 400 });
         }
 
@@ -44,6 +44,7 @@ export async function POST(req: Request) {
 
         const newCoupon = new Coupon({
             code: code.toUpperCase(),
+            type: type || 'discount',
             description,
             discountType,
             discountValue: Number(discountValue),

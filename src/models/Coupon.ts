@@ -10,6 +10,11 @@ const couponSchema = new mongoose.Schema(
             uppercase: true,
             trim: true,
         },
+        type: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'CouponType',
+            required: true,
+        },
         description: {
             type: String,
         },

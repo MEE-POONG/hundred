@@ -108,10 +108,9 @@ export default function RegisterPage() {
       });
 
       if (loginResult?.ok) {
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       } else {
-        router.push('/auth/login');
+        window.location.href = '/auth/login';
       }
     } catch (err) {
       setServerError('เกิดข้อผิดพลาด กรุณาลองใหม่');
